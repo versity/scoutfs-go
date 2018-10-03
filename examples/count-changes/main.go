@@ -75,8 +75,18 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	if len(os.Args) != 2 || os.Args[1] == "-h" {
+		fmt.Fprintln(os.Stderr, "usage:", os.Args[0], "<scoutfs mount point>")
+		os.Exit(1)
+	}
+
+	// create server
 	update := make(chan int, 1)
 	s := &server{update: update}
+
+	// run puplation query in separate goroutine
 	go queryPopulation(os.Args[1], update)
+
+	// run webserver
 	log.Fatal(http.ListenAndServe(":8080", s))
 }
