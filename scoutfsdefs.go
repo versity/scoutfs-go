@@ -16,7 +16,7 @@ const (
 	//IOCQUERYINODES scoutfs ioctl
 	IOCQUERYINODES = 0x40357301
 	//IOCINOPATH scoutfs ioctl
-	IOCINOPATH = 0x401c7302
+	IOCINOPATH = 0x40227302
 	//IOCDATAVERSION scoutfs ioctl
 	IOCDATAVERSION = 0x40087304
 	//IOCRELEASE scoutfs ioctl
@@ -30,6 +30,8 @@ const (
 	QUERYINODESMETASEQ = '\u0000'
 	//QUERYINODESDATASEQ find inodes by data sequence
 	QUERYINODESDATASEQ = '\u0001'
+
+	pathmax = 1024
 )
 
 /* pahole for scoutfs_ioctl_walk_inodes_entry
@@ -128,11 +130,11 @@ struct scoutfs_ioctl_ino_path {
 
 // InoPath ioctl struct
 type InoPath struct {
-	Ino         uint64
-	DirIno      uint64
-	DirPos      uint64
-	ResultPtr   uint64
-	ResultBytes uint64
+	Ino        uint64
+	DirIno     uint64
+	DirPos     uint64
+	ResultPtr  uint64
+	ResultSize uint16
 }
 
 /* pahole for scoutfs_ioctl_ino_path_result
@@ -149,10 +151,10 @@ struct scoutfs_ioctl_ino_path_result {
 
 // InoPathResult ioctl struct
 type InoPathResult struct {
-	DirIno      uint64
-	DirPos      uint64
-	PathBytes   uint16
-	ResultBytes uint64
+	DirIno   uint64
+	DirPos   uint64
+	PathSize uint16
+	Path     [pathmax]byte
 }
 
 /* pahole for scoutfs_ioctl_release
@@ -207,7 +209,7 @@ struct scoutfs_ioctl_stat_more {
 };
 */
 
-//Stat holds scoutfs specific per file metadata
+// Stat holds scoutfs specific per file metadata
 type Stat struct {
 	ValidBytes    uint64
 	MetaSeq       uint64
@@ -215,4 +217,38 @@ type Stat struct {
 	DataVersion   uint64
 	OnlineBlocks  uint64
 	OfflineBlocks uint64
+}
+
+/* pahole for scoutfs_fid
+struct scoutfs_fid {
+	__le64                     ino;                  //     0     8
+	__le64                     parent_ino;           //     8     8
+
+	// size: 16, cachelines: 1, members: 2
+	// last cacheline: 16 bytes
+};
+*/
+
+// FileID for file by ID operations
+type FileID struct {
+	Ino       uint64
+	ParentIno uint64
+}
+
+/* pahole for scoutfs_file_handle
+struct scoutfs_file_handle {
+	unsigned int               handle_bytes;         //     0     4
+	int                        handle_type;          //     4     4
+	struct scoutfs_fid         fid;                  //     8    16
+
+	// size: 24, cachelines: 1, members: 3
+	// last cacheline: 24 bytes
+};
+*/
+
+// FileHandle is the scoutfs specific file handle for open by handle operations
+type FileHandle struct {
+	FidSize    uint32
+	HandleType int32
+	FID        FileID
 }

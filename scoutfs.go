@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"os"
-	"syscall"
 	"unsafe"
 )
 
@@ -38,12 +37,9 @@ type Time struct {
 // Specify query type with By*() option
 // (only 1 allowed, last one wins)
 // and specify batching with WithBatchSize()
-func NewQuery(path string, opts ...Option) (*Query, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-
+// An open file within scoutfs is supplied for ioctls
+// (usually just the base mount point directory)
+func NewQuery(f *os.File, opts ...Option) *Query {
 	q := &Query{
 		//default batch size is 128
 		batch: 128,
@@ -54,7 +50,7 @@ func NewQuery(path string, opts ...Option) (*Query, error) {
 		opt(q)
 	}
 
-	return q, nil
+	return q
 }
 
 // Option sets various options for NewWalkHandle
@@ -146,11 +142,6 @@ func (q *Query) Next() ([]InodesEntry, error) {
 	return inodes, nil
 }
 
-// Close queryHandle and cleanup
-func (q *Query) Close() {
-	q.fsfd.Close()
-}
-
 // StatMore returns scoutfs specific metadata for path
 func StatMore(path string) (Stat, error) {
 	f, err := os.Open(path)
@@ -169,10 +160,40 @@ func StatMore(path string) (Stat, error) {
 	return s, nil
 }
 
-func scoutfsctl(fd, cmd, ptr uintptr) (int, error) {
-	count, _, err := syscall.Syscall(syscall.SYS_IOCTL, fd, cmd, ptr)
-	if err != 0 {
-		return 0, err
+// InoToPath converts an inode number to a path in the filesystem
+// An open file within scoutfs is supplied for ioctls
+// (usually just the base mount point directory)
+func InoToPath(dirfd *os.File, ino uint64) (string, error) {
+	var res InoPathResult
+	ip := InoPath{
+		Ino:        ino,
+		ResultPtr:  uint64(uintptr(unsafe.Pointer(&res))),
+		ResultSize: uint16(unsafe.Sizeof(res)),
 	}
-	return int(count), nil
+
+	_, err := scoutfsctl(dirfd.Fd(), IOCINOPATH, uintptr(unsafe.Pointer(&ip)))
+	if err != nil {
+		return "", err
+	}
+
+	return string(res.Path[:res.PathSize]), nil
+}
+
+// OpenByID will open a file by inode returning a typical *os.File
+// An open file within scoutfs is supplied for ioctls
+// (usually just the base mount point directory)
+// The filename is available through the *os.File and is populated with
+// the scoutfs InoToPath
+func OpenByID(dirfd *os.File, ino uint64, flags int) (*os.File, error) {
+	name, err := InoToPath(dirfd, ino)
+	if err != nil {
+		return nil, err
+	}
+
+	fd, err := OpenByHandle(dirfd, ino, flags)
+	if err != nil {
+		return nil, err
+	}
+
+	return os.NewFile(fd, name), nil
 }
