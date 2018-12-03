@@ -24,7 +24,7 @@ const (
 	//IOCSTAGE scoutfs ioctl
 	IOCSTAGE = 0x401c7306
 	//IOCSTATMORE scoutfs ioctl
-	IOCSTATMORE = 0x40207307
+	IOCSTATMORE = 0x40307307
 
 	//QUERYINODESMETASEQ find inodes by metadata sequence
 	QUERYINODESMETASEQ = '\u0000'

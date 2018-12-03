@@ -131,7 +131,6 @@ func (q *Query) Next() ([]InodesEntry, error) {
 
 	q.first = e
 	q.first.Ino++
-	q.first.Minor++
 	if q.first.Ino == 0 {
 		q.first.Minor++
 		if q.first.Minor == 0 {
@@ -150,7 +149,7 @@ func StatMore(path string) (Stat, error) {
 	}
 	defer f.Close()
 
-	var s Stat
+	s := Stat{ValidBytes: uint64(unsafe.Sizeof(Stat{}))}
 
 	_, err = scoutfsctl(f.Fd(), IOCSTATMORE, uintptr(unsafe.Pointer(&s)))
 	if err != nil {
