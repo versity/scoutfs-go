@@ -27,18 +27,15 @@ type server struct {
 }
 
 func queryPopulation(basedir string, update chan<- int) error {
-	f, err := os.Open(path)
+	f, err := os.Open(basedir)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	h, err := scoutfs.NewQuery(basedir,
-		scoutfs.ByMSeq(scoutfs.InodesEntry{},
-			scoutfs.InodesEntry{Major: max64, Minor: max32, Ino: max64}))
-	if err != nil {
-		return fmt.Errorf("scoutfs new handle: %v", err)
-	}
+	min := scoutfs.InodesEntry{}
+	max := scoutfs.InodesEntry{Major: max64, Minor: max32, Ino: max64}
+	h := scoutfs.NewQuery(f, scoutfs.ByMSeq(min, max))
 
 	count := 0
 	for {
