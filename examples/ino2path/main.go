@@ -33,5 +33,9 @@ func main() {
 	}
 
 	s, err := scoutfs.InoToPath(f, u)
+	if err != nil {
+		log.Fatalln("error inode to path:", err)
+	}
+
 	fmt.Println(s)
 }
