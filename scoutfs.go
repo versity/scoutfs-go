@@ -181,14 +181,9 @@ func InoToPath(dirfd *os.File, ino uint64) (string, error) {
 // OpenByID will open a file by inode returning a typical *os.File
 // An open file within scoutfs is supplied for ioctls
 // (usually just the base mount point directory)
-// The filename is available through the *os.File and is populated with
-// the scoutfs InoToPath
-func OpenByID(dirfd *os.File, ino uint64, flags int) (*os.File, error) {
-	name, err := InoToPath(dirfd, ino)
-	if err != nil {
-		return nil, err
-	}
-
+// The filename supplied is used for the *os.File info, but can be "" if
+// not known or needed
+func OpenByID(dirfd *os.File, ino uint64, flags int, name string) (*os.File, error) {
 	fd, err := OpenByHandle(dirfd, ino, flags)
 	if err != nil {
 		return nil, err

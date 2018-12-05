@@ -32,16 +32,23 @@ func main() {
 		log.Fatalln("error parsing inode:", err)
 	}
 
-	f, err := scoutfs.OpenByID(dirf, u, os.O_RDONLY)
+	name, err := scoutfs.InoToPath(dirf, u)
+	if err != nil {
+		log.Fatalln("error getting pathname:", err)
+	}
+
+	f, err := scoutfs.OpenByID(dirf, u, os.O_RDONLY, name)
 	if err != nil {
 		log.Fatalln("error open by id:", err)
 	}
+	defer f.Close()
 
 	fi, err := f.Stat()
 	if err != nil {
 		log.Fatalln("error stat:", err)
 	}
 
+	fmt.Println("Full name relative to mount:", name)
 	fmt.Println("Name:", fi.Name())
 	fmt.Println("Size:", fi.Size())
 	fmt.Println("Mode:", fi.Mode())
