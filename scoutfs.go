@@ -149,9 +149,14 @@ func StatMore(path string) (Stat, error) {
 	}
 	defer f.Close()
 
+	return FStatMore(f)
+}
+
+// FStatMore returns scoutfs specific metadata for file handle
+func FStatMore(f *os.File) (Stat, error) {
 	s := Stat{ValidBytes: uint64(unsafe.Sizeof(Stat{}))}
 
-	_, err = scoutfsctl(f.Fd(), IOCSTATMORE, uintptr(unsafe.Pointer(&s)))
+	_, err := scoutfsctl(f.Fd(), IOCSTATMORE, uintptr(unsafe.Pointer(&s)))
 	if err != nil {
 		return Stat{}, err
 	}
