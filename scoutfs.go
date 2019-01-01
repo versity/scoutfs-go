@@ -9,6 +9,7 @@ package scoutfs
 import (
 	"bytes"
 	"encoding/binary"
+	"math"
 	"os"
 	"unsafe"
 )
@@ -195,4 +196,21 @@ func OpenByID(dirfd *os.File, ino uint64, flags int, name string) (*os.File, err
 	}
 
 	return os.NewFile(fd, name), nil
+}
+
+// ReleaseFile marks file offline and frees associated extents
+func ReleaseFile(path string, version uint64) error {
+	f, err := os.OpenFile(path, os.O_WRONLY, 0)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	r := IocRelease{
+		Count:       math.MaxUint64,
+		DataVersion: version,
+	}
+
+	_, err = scoutfsctl(f.Fd(), IOCRELEASE, uintptr(unsafe.Pointer(&r)))
+	return err
 }
