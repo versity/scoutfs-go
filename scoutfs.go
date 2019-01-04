@@ -214,3 +214,46 @@ func ReleaseFile(path string, version uint64) error {
 	_, err = scoutfsctl(f.Fd(), IOCRELEASE, uintptr(unsafe.Pointer(&r)))
 	return err
 }
+
+// FReleaseFile marks file offline and frees associated extents
+func FReleaseFile(f *os.File, version uint64) error {
+	r := IocRelease{
+		Count:       math.MaxUint64,
+		DataVersion: version,
+	}
+
+	_, err := scoutfsctl(f.Fd(), IOCRELEASE, uintptr(unsafe.Pointer(&r)))
+	return err
+}
+
+// StageFile rehydrates offline file
+func StageFile(path string, version, offset uint64, b []byte) error {
+	f, err := os.OpenFile(path, os.O_WRONLY, 0)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	r := IocStage{
+		DataVersion: version,
+		BufPtr:      uint64(uintptr(unsafe.Pointer(&b))),
+		Offset:      offset,
+		count:       int32(len(b)),
+	}
+
+	_, err = scoutfsctl(f.Fd(), IOCSTAGE, uintptr(unsafe.Pointer(&r)))
+	return err
+}
+
+// FStageFile rehydrates offline file
+func FStageFile(f *os.File, version, offset uint64, b []byte) error {
+	r := IocStage{
+		DataVersion: version,
+		BufPtr:      uint64(uintptr(unsafe.Pointer(&b[0]))),
+		Offset:      offset,
+		count:       int32(len(b)),
+	}
+
+	_, err := scoutfsctl(f.Fd(), IOCSTAGE, uintptr(unsafe.Pointer(&r)))
+	return err
+}
