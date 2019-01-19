@@ -181,7 +181,9 @@ func InoToPath(dirfd *os.File, ino uint64) (string, error) {
 		return "", err
 	}
 
-	return string(res.Path[:res.PathSize]), nil
+	b := bytes.Trim(res.Path[:res.PathSize], "\x00")
+
+	return string(b), nil
 }
 
 // OpenByID will open a file by inode returning a typical *os.File
