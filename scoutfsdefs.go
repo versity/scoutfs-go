@@ -13,23 +13,32 @@ import (
 )
 
 const (
-	//IOCQUERYINODES scoutfs ioctl
+	// IOCQUERYINODES scoutfs ioctl
 	IOCQUERYINODES = 0x40357301
-	//IOCINOPATH scoutfs ioctl
+	// IOCINOPATH scoutfs ioctl
 	IOCINOPATH = 0x40227302
-	//IOCDATAVERSION scoutfs ioctl
+	// IOCDATAVERSION scoutfs ioctl
 	IOCDATAVERSION = 0x40087304
-	//IOCRELEASE scoutfs ioctl
+	// IOCRELEASE scoutfs ioctl
 	IOCRELEASE = 0x40187305
-	//IOCSTAGE scoutfs ioctl
+	// IOCSTAGE scoutfs ioctl
 	IOCSTAGE = 0x401c7306
-	//IOCSTATMORE scoutfs ioctl
+	// IOCSTATMORE scoutfs ioctl
 	IOCSTATMORE = 0x40307307
+	// IOCDATAWAITING scoutfs ioctl
+	IOCDATAWAITING = 0x40227309
 
-	//QUERYINODESMETASEQ find inodes by metadata sequence
+	// QUERYINODESMETASEQ find inodes by metadata sequence
 	QUERYINODESMETASEQ = '\u0000'
-	//QUERYINODESDATASEQ find inodes by data sequence
+	// QUERYINODESDATASEQ find inodes by data sequence
 	QUERYINODESDATASEQ = '\u0001'
+
+	// DATAWAITOPREAD waiting operation read
+	DATAWAITOPREAD = 1 << 0
+	// DATAWAITOPWRITE waiting operation write
+	DATAWAITOPWRITE = 1 << 1
+	// DATAWAITOPCHANGESIZE waiting operation truncate
+	DATAWAITOPCHANGESIZE = 1 << 2
 
 	pathmax = 1024
 )
@@ -45,7 +54,7 @@ struct scoutfs_ioctl_walk_inodes_entry {
 };
 */
 
-//InodesEntry is scoutfs entry for inode iteration
+// InodesEntry is scoutfs entry for inode iteration
 type InodesEntry struct {
 	Major uint64
 	Minor uint32
@@ -65,7 +74,7 @@ struct scoutfs_ioctl_walk_inodes {
 };
 */
 
-//queryInodes is scoutfs request structure for IOCQUERYINODES
+// queryInodes is scoutfs request structure for IOCQUERYINODES
 type queryInodes struct {
 	first   InodesEntry
 	last    InodesEntry
@@ -74,8 +83,8 @@ type queryInodes struct {
 	index   uint8
 }
 
-//packed scoutfs_ioctl_walk_inodes requires packing queryInodes byhand
-//the 53 size comes from pahole output above
+// packed scoutfs_ioctl_walk_inodes requires packing queryInodes byhand
+// the 53 size comes from pahole output above
 func (q queryInodes) pack() ([53]byte, error) {
 	var pack [53]byte
 	var pbuf = bytes.NewBuffer(make([]byte, 0, len(pack)))
@@ -251,4 +260,44 @@ type FileHandle struct {
 	FidSize    uint32
 	HandleType int32
 	FID        FileID
+}
+
+/* pahole for scoutfs_ioctl_data_waiting_entry
+struct scoutfs_ioctl_data_waiting_entry {
+	__u64                      ino;                  //     0     8
+	__u64                      iblock;               //     8     8
+	__u8                       op;                   //    16     1
+
+	// size: 17, cachelines: 1, members: 3
+	// last cacheline: 17 bytes
+};
+*/
+
+// DataWaitingEntry is an entry returned when a process is waiting on
+// access of offline block
+type DataWaitingEntry struct {
+	Ino    uint64
+	Iblock uint64
+	Op     uint8
+}
+
+/* pahole for scoutfs_ioctl_data_waiting
+struct scoutfs_ioctl_data_waiting {
+	__u64                      flags;                //     0     8
+	__u64                      after_ino;            //     8     8
+	__u64                      after_iblock;         //    16     8
+	__u64                      ents_ptr;             //    24     8
+	__u16                      ents_nr;              //    32     2
+
+	/ size: 34, cachelines: 1, members: 5
+	/ last cacheline: 34 bytes
+};
+*/
+
+type dataWaiting struct {
+	flags       uint64
+	afterIno    uint64
+	afterIblock uint64
+	entries     uintptr
+	count       uint16
 }

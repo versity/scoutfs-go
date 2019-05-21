@@ -34,7 +34,7 @@ type Time struct {
 	Nsec uint32
 }
 
-// NewQuery creates a new scoutfs WalkHandle
+// NewQuery creates a new scoutfs Query
 // Specify query type with By*() option
 // (only 1 allowed, last one wins)
 // and specify batching with WithBatchSize()
@@ -95,16 +95,16 @@ func (q *Query) Next() ([]InodesEntry, error) {
 
 	pack, err := query.pack()
 	if err != nil {
-		return []InodesEntry{}, err
+		return nil, err
 	}
 
 	n, err := scoutfsctl(q.fsfd.Fd(), IOCQUERYINODES, uintptr(unsafe.Pointer(&pack)))
 	if err != nil {
-		return []InodesEntry{}, err
+		return nil, err
 	}
 
 	if n == 0 {
-		return []InodesEntry{}, nil
+		return nil, nil
 	}
 
 	rbuf := bytes.NewReader(buf)
@@ -116,15 +116,15 @@ func (q *Query) Next() ([]InodesEntry, error) {
 		//unpacking each member individually
 		err := binary.Read(rbuf, binary.LittleEndian, &e.Major)
 		if err != nil {
-			return []InodesEntry{}, err
+			return nil, err
 		}
 		err = binary.Read(rbuf, binary.LittleEndian, &e.Minor)
 		if err != nil {
-			return []InodesEntry{}, err
+			return nil, err
 		}
 		err = binary.Read(rbuf, binary.LittleEndian, &e.Ino)
 		if err != nil {
-			return []InodesEntry{}, err
+			return nil, err
 		}
 
 		inodes = append(inodes, e)
@@ -244,4 +244,85 @@ func FStageFile(f *os.File, version, offset uint64, b []byte) error {
 
 	_, err := scoutfsctl(f.Fd(), IOCSTAGE, uintptr(unsafe.Pointer(&r)))
 	return err
+}
+
+// Waiters to keep track of data waiters
+type Waiters struct {
+	ino    uint64
+	iblock uint64
+	batch  uint16
+	fsfd   *os.File
+}
+
+// NewWaiters creates a new scoutfs Waiters
+// An open file within scoutfs is supplied for ioctls
+// (usually just the base mount point directory)
+func NewWaiters(f *os.File, opts ...WOption) *Waiters {
+	w := &Waiters{
+		//default batch size is 128
+		batch: 128,
+		fsfd:  f,
+	}
+
+	for _, opt := range opts {
+		opt(w)
+	}
+
+	return w
+}
+
+// WOption sets various options for NewWaiters
+type WOption func(*Waiters)
+
+// WithWaitersCount sets the max number of inodes to be returned at a time
+func WithWaitersCount(size uint16) WOption {
+	return func(w *Waiters) {
+		w.batch = size
+	}
+}
+
+// Next gets the next batch of data waiters, returns nil, nil if no waiters
+func (w *Waiters) Next() ([]DataWaitingEntry, error) {
+	buf := make([]byte, int(unsafe.Sizeof(DataWaitingEntry{}))*int(w.batch))
+	dataWaiting := dataWaiting{
+		afterIno:    w.ino,
+		afterIblock: w.iblock,
+		entries:     uintptr(unsafe.Pointer(&buf[0])),
+		count:       w.batch,
+	}
+
+	n, err := scoutfsctl(w.fsfd.Fd(), IOCDATAWAITING, uintptr(unsafe.Pointer(&dataWaiting)))
+	if err != nil {
+		return nil, err
+	}
+
+	if n == 0 {
+		return nil, nil
+	}
+
+	rbuf := bytes.NewReader(buf)
+	var inodes []DataWaitingEntry
+
+	var e DataWaitingEntry
+	for i := 0; i < n; i++ {
+		err := binary.Read(rbuf, binary.LittleEndian, &e.Ino)
+		if err != nil {
+			return nil, err
+		}
+		err = binary.Read(rbuf, binary.LittleEndian, &e.Iblock)
+		if err != nil {
+			return nil, err
+		}
+		err = binary.Read(rbuf, binary.LittleEndian, &e.Op)
+		if err != nil {
+			return nil, err
+		}
+
+		inodes = append(inodes, e)
+	}
+
+	w.ino = inodes[n-1].Ino
+	w.iblock = inodes[n-1].Iblock
+
+	return inodes, nil
 }
