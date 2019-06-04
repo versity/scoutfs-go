@@ -27,6 +27,8 @@ const (
 	IOCSTATMORE = 0x40307307
 	// IOCDATAWAITING scoutfs ioctl
 	IOCDATAWAITING = 0x40227309
+	// IOCSETATTRMORE scoutfs ioctl
+	IOCSETATTRMORE = 0x4024730a
 
 	// QUERYINODESMETASEQ find inodes by metadata sequence
 	QUERYINODESMETASEQ = '\u0000'
@@ -300,4 +302,38 @@ type dataWaiting struct {
 	afterIblock uint64
 	entries     uintptr
 	count       uint16
+}
+
+/* pahole for scoutfs_timespec
+struct scoutfs_timespec {
+        __le64                     sec;                  //     0     8
+        __le32                     nsec;                 //     8     4
+
+        // size: 12, cachelines: 1, members: 2
+        // last cacheline: 12 bytes
+};
+*/
+
+type scoutfsTimespec struct {
+	sec  int64
+	nsec int32
+}
+
+/* pahole for scoutfs_ioctl_setattr_more
+struct scoutfs_ioctl_setattr_more {
+	__u64                      data_version;         //     0     8
+	__u64                      i_size;               //     8     8
+	__u64                      flags;                //    16     8
+	struct scoutfs_timespec    ctime;                //    24    12
+
+	// size: 36, cachelines: 1, members: 4
+	// last cacheline: 36 bytes
+};
+*/
+
+type setattrMore struct {
+	dataVersion uint64
+	iSize       uint64
+	flags       uint64
+	ctime       scoutfsTimespec
 }

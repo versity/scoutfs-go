@@ -11,6 +11,7 @@ import (
 	"encoding/binary"
 	"math"
 	"os"
+	"time"
 	"unsafe"
 )
 
@@ -163,6 +164,37 @@ func FStatMore(f *os.File) (Stat, error) {
 	}
 
 	return s, nil
+}
+
+// SetAttrMore sets special scoutfs attributes
+func SetAttrMore(path string, version, size, flags uint64, ctime time.Time) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	return FSetAttrMore(f, version, size, flags, ctime)
+}
+
+// FSetAttrMore sets special scoutfs attributes for file handle
+func FSetAttrMore(f *os.File, version, size, flags uint64, ctime time.Time) error {
+	var nsec int32
+	if ctime.UnixNano() == int64(int32(ctime.UnixNano())) {
+		nsec = int32(ctime.UnixNano())
+	}
+	s := setattrMore{
+		dataVersion: version,
+		iSize:       size,
+		flags:       flags,
+		ctime: scoutfsTimespec{
+			sec:  ctime.Unix(),
+			nsec: nsec,
+		},
+	}
+
+	_, err := scoutfsctl(f.Fd(), IOCSETATTRMORE, uintptr(unsafe.Pointer(&s)))
+	return err
 }
 
 // InoToPath converts an inode number to a path in the filesystem
