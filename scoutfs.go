@@ -168,7 +168,7 @@ func FStatMore(f *os.File) (Stat, error) {
 
 // SetAttrMore sets special scoutfs attributes
 func SetAttrMore(path string, version, size, flags uint64, ctime time.Time) error {
-	f, err := os.Open(path)
+	f, err := os.OpenFile(path, os.O_RDWR, 0600)
 	if err != nil {
 		return err
 	}
