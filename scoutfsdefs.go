@@ -4,31 +4,33 @@
 // that can be found in the LICENSE file in the root of the source
 // tree.
 
-package scoutfs
+// The _ struct members are not necessary, but just there to be explicit
+// in the matching up with the C struct alignment.  The Go structs follow
+// the same alignment rules, so should be compatible without these fields.
 
-import (
-	"bytes"
-	"encoding/binary"
-	"fmt"
-)
+package scoutfs
 
 const (
 	// IOCQUERYINODES scoutfs ioctl
-	IOCQUERYINODES = 0x40357301
+	IOCQUERYINODES = 0x40487301
 	// IOCINOPATH scoutfs ioctl
-	IOCINOPATH = 0x40227302
+	IOCINOPATH = 0x40287302
 	// IOCDATAVERSION scoutfs ioctl
 	IOCDATAVERSION = 0x40087304
 	// IOCRELEASE scoutfs ioctl
 	IOCRELEASE = 0x40187305
 	// IOCSTAGE scoutfs ioctl
-	IOCSTAGE = 0x401c7306
+	IOCSTAGE = 0x40207306
 	// IOCSTATMORE scoutfs ioctl
 	IOCSTATMORE = 0x40307307
 	// IOCDATAWAITING scoutfs ioctl
-	IOCDATAWAITING = 0x40227309
+	IOCDATAWAITING = 0x40287309
 	// IOCSETATTRMORE scoutfs ioctl
-	IOCSETATTRMORE = 0x4024730a
+	IOCSETATTRMORE = 0x4028730a
+	// IOCLISTXATTRRAW scoutfs ioctl
+	IOCLISTXATTRRAW = 0x4018730b
+	// IOCFINDXATTRS scoutfs ioctl
+	IOCFINDXATTRS = 0x4020730c
 
 	// QUERYINODESMETASEQ find inodes by metadata sequence
 	QUERYINODESMETASEQ = '\u0000'
@@ -48,31 +50,35 @@ const (
 /* pahole for scoutfs_ioctl_walk_inodes_entry
 struct scoutfs_ioctl_walk_inodes_entry {
         __u64                      major;                //     0     8
-        __u32                      minor;                //     8     4
-        __u64                      ino;                  //    12     8
+        __u64                      ino;                  //     8     8
+        __u32                      minor;                //    16     4
+        __u8                       _pad[4];              //    20     4
 
-        // size: 20, cachelines: 1, members: 3
-        // last cacheline: 20 bytes
+        // size: 24, cachelines: 1, members: 4
+        // last cacheline: 24 bytes
 };
 */
 
 // InodesEntry is scoutfs entry for inode iteration
 type InodesEntry struct {
 	Major uint64
-	Minor uint32
 	Ino   uint64
+	Minor uint32
+	_     [4]uint8
 }
 
 /* pahole for scoutfs_ioctl_walk_inodes
 struct scoutfs_ioctl_walk_inodes {
-        struct scoutfs_ioctl_walk_inodes_entry first;    //     0    20
-        struct scoutfs_ioctl_walk_inodes_entry last;     //    20    20
-        __u64                      entries_ptr;          //    40     8
-        __u32                      nr_entries;           //    48     4
-        __u8                       index;                //    52     1
+        struct scoutfs_ioctl_walk_inodes_entry first;    //     0    24
+        struct scoutfs_ioctl_walk_inodes_entry last;     //    24    24
+        __u64                      entries_ptr;          //    48     8
+        __u32                      nr_entries;           //    56     4
+        __u8                       index;                //    60     1
+        __u8                       _pad[11];             //    61    11
+        // --- cacheline 1 boundary (64 bytes) was 8 bytes ago ---
 
-        // size: 53, cachelines: 1, members: 5
-        // last cacheline: 53 bytes
+        // size: 72, cachelines: 2, members: 6
+        // last cacheline: 8 bytes
 };
 */
 
@@ -83,59 +89,20 @@ type queryInodes struct {
 	entries uintptr
 	count   uint32
 	index   uint8
-}
-
-// packed scoutfs_ioctl_walk_inodes requires packing queryInodes byhand
-// the 53 size comes from pahole output above
-func (q queryInodes) pack() ([53]byte, error) {
-	var pack [53]byte
-	var pbuf = bytes.NewBuffer(make([]byte, 0, len(pack)))
-
-	if err := binary.Write(pbuf, binary.LittleEndian, q.first.Major); err != nil {
-		return [53]byte{}, fmt.Errorf("pack first.Major: %v", err)
-	}
-	if err := binary.Write(pbuf, binary.LittleEndian, q.first.Minor); err != nil {
-		return [53]byte{}, fmt.Errorf("pack first.Minor: %v", err)
-	}
-	if err := binary.Write(pbuf, binary.LittleEndian, q.first.Ino); err != nil {
-		return [53]byte{}, fmt.Errorf("pack first.Ino: %v", err)
-	}
-	if err := binary.Write(pbuf, binary.LittleEndian, q.last.Major); err != nil {
-		return [53]byte{}, fmt.Errorf("pack last.Major: %v", err)
-	}
-	if err := binary.Write(pbuf, binary.LittleEndian, q.last.Minor); err != nil {
-		return [53]byte{}, fmt.Errorf("pack last.Minor: %v", err)
-	}
-	if err := binary.Write(pbuf, binary.LittleEndian, q.last.Ino); err != nil {
-		return [53]byte{}, fmt.Errorf("pack last.Ino: %v", err)
-	}
-	if err := binary.Write(pbuf, binary.LittleEndian, uint64(q.entries)); err != nil {
-		return [53]byte{}, fmt.Errorf("pack entries: %v", err)
-	}
-	if err := binary.Write(pbuf, binary.LittleEndian, q.count); err != nil {
-		return [53]byte{}, fmt.Errorf("pack count: %v", err)
-	}
-	if err := binary.Write(pbuf, binary.LittleEndian, q.index); err != nil {
-		return [53]byte{}, fmt.Errorf("pack index: %v", err)
-	}
-
-	if err := binary.Read(pbuf, binary.LittleEndian, &pack); err != nil {
-		return [53]byte{}, fmt.Errorf("read packed: %v", err)
-	}
-
-	return pack, nil
+	_       [11]uint8
 }
 
 /* pahole for scoutfs_ioctl_ino_path
 struct scoutfs_ioctl_ino_path {
-	__u64                      ino;                  //     0     8
-	__u64                      dir_ino;              //     8     8
-	__u64                      dir_pos;              //    16     8
-	__u64                      result_ptr;           //    24     8
-	__u16                      result_bytes;         //    32     2
+        __u64                      ino;                  //     0     8
+        __u64                      dir_ino;              //     8     8
+        __u64                      dir_pos;              //    16     8
+        __u64                      result_ptr;           //    24     8
+        __u16                      result_bytes;         //    32     2
+        __u8                       _pad[6];              //    34     6
 
-	// size: 34, cachelines: 1, members: 5
-	// last cacheline: 34 bytes
+        // size: 40, cachelines: 1, members: 6
+        // last cacheline: 40 bytes
 };
 */
 
@@ -146,17 +113,19 @@ type InoPath struct {
 	DirPos     uint64
 	ResultPtr  uint64
 	ResultSize uint16
+	_          [6]uint8
 }
 
 /* pahole for scoutfs_ioctl_ino_path_result
 struct scoutfs_ioctl_ino_path_result {
-	__u64                      dir_ino;              //     0     8
-	__u64                      dir_pos;              //     8     8
-	__u16                      path_bytes;           //    16     2
-	__u8                       path[0];              //    18     0
+        __u64                      dir_ino;              //     0     8
+        __u64                      dir_pos;              //     8     8
+        __u16                      path_bytes;           //    16     2
+        __u8                       _pad[6];              //    18     6
+        __u8                       path[0];              //    24     0
 
-	// size: 18, cachelines: 1, members: 4
-	// last cacheline: 18 bytes
+        // size: 24, cachelines: 1, members: 5
+        // last cacheline: 24 bytes
 };
 */
 
@@ -165,6 +134,7 @@ type InoPathResult struct {
 	DirIno   uint64
 	DirPos   uint64
 	PathSize uint16
+	_        [6]uint8
 	Path     [pathmax]byte
 }
 
@@ -188,13 +158,14 @@ type IocRelease struct {
 
 /* pahole for scoutfs_ioctl_stage
 struct scoutfs_ioctl_stage {
-	__u64                      data_version;         //     0     8
-	__u64                      buf_ptr;              //     8     8
-	__u64                      offset;               //    16     8
-	__s32                      count;                //    24     4
+        __u64                      data_version;         //     0     8
+        __u64                      buf_ptr;              //     8     8
+        __u64                      offset;               //    16     8
+        __s32                      count;                //    24     4
+        __u32                      _pad;                 //    28     4
 
-	// size: 28, cachelines: 1, members: 4
-	// last cacheline: 28 bytes
+        // size: 32, cachelines: 1, members: 5
+        // last cacheline: 32 bytes
 };
 */
 
@@ -204,6 +175,7 @@ type IocStage struct {
 	BufPtr      uint64
 	Offset      uint64
 	count       int32
+	_           uint32
 }
 
 /* pahole for scoutfs_ioctl_stat_more
@@ -266,12 +238,13 @@ type FileHandle struct {
 
 /* pahole for scoutfs_ioctl_data_waiting_entry
 struct scoutfs_ioctl_data_waiting_entry {
-	__u64                      ino;                  //     0     8
-	__u64                      iblock;               //     8     8
-	__u8                       op;                   //    16     1
+        __u64                      ino;                  //     0     8
+        __u64                      iblock;               //     8     8
+        __u8                       op;                   //    16     1
+        __u8                       _pad[7];              //    17     7
 
-	// size: 17, cachelines: 1, members: 3
-	// last cacheline: 17 bytes
+        // size: 24, cachelines: 1, members: 4
+        // last cacheline: 24 bytes
 };
 */
 
@@ -281,18 +254,20 @@ type DataWaitingEntry struct {
 	Ino    uint64
 	Iblock uint64
 	Op     uint8
+	_      [7]uint8
 }
 
 /* pahole for scoutfs_ioctl_data_waiting
 struct scoutfs_ioctl_data_waiting {
-	__u64                      flags;                //     0     8
-	__u64                      after_ino;            //     8     8
-	__u64                      after_iblock;         //    16     8
-	__u64                      ents_ptr;             //    24     8
-	__u16                      ents_nr;              //    32     2
+        __u64                      flags;                //     0     8
+        __u64                      after_ino;            //     8     8
+        __u64                      after_iblock;         //    16     8
+        __u64                      ents_ptr;             //    24     8
+        __u16                      ents_nr;              //    32     2
+        __u8                       _pad[6];              //    34     6
 
-	/ size: 34, cachelines: 1, members: 5
-	/ last cacheline: 34 bytes
+        // size: 40, cachelines: 1, members: 6
+        // last cacheline: 40 bytes
 };
 */
 
@@ -302,32 +277,20 @@ type dataWaiting struct {
 	afterIblock uint64
 	entries     uintptr
 	count       uint16
-}
-
-/* pahole for scoutfs_timespec
-struct scoutfs_timespec {
-        __le64                     sec;                  //     0     8
-        __le32                     nsec;                 //     8     4
-
-        // size: 12, cachelines: 1, members: 2
-        // last cacheline: 12 bytes
-};
-*/
-
-type scoutfsTimespec struct {
-	sec  int64
-	nsec int32
+	_           [6]uint8
 }
 
 /* pahole for scoutfs_ioctl_setattr_more
 struct scoutfs_ioctl_setattr_more {
-	__u64                      data_version;         //     0     8
-	__u64                      i_size;               //     8     8
-	__u64                      flags;                //    16     8
-	struct scoutfs_timespec    ctime;                //    24    12
+        __u64                      data_version;         //     0     8
+        __u64                      i_size;               //     8     8
+        __u64                      flags;                //    16     8
+        __u64                      ctime_sec;            //    24     8
+        __u32                      ctime_nsec;           //    32     4
+        __u8                       _pad[4];              //    36     4
 
-	// size: 36, cachelines: 1, members: 4
-	// last cacheline: 36 bytes
+        // size: 40, cachelines: 1, members: 6
+        // last cacheline: 40 bytes
 };
 */
 
@@ -335,5 +298,49 @@ type setattrMore struct {
 	dataVersion uint64
 	iSize       uint64
 	flags       uint64
-	ctime       scoutfsTimespec
+	ctimesec    uint64
+	ctimensec   uint32
+	_           [4]uint8
+}
+
+/* pahole for scoutfs_ioctl_listxattr_raw
+struct scoutfs_ioctl_listxattr_raw {
+        __u64                      id_pos;               //     0     8
+        __u64                      buf_ptr;              //     8     8
+        __u32                      buf_bytes;            //    16     4
+        __u32                      hash_pos;             //    20     4
+
+        // size: 24, cachelines: 1, members: 4
+        // last cacheline: 24 bytes
+};
+*/
+
+type listXattrRaw struct {
+	idPos   uint64
+	buf     uintptr
+	bufSize uint32
+	hashPos uint32
+}
+
+/* pahole for scoutfs_ioctl_find_xattrs
+struct scoutfs_ioctl_find_xattrs {
+        __u64                      next_ino;             //     0     8
+        __u64                      name_ptr;             //     8     8
+        __u64                      inodes_ptr;           //    16     8
+        __u16                      name_bytes;           //    24     2
+        __u16                      nr_inodes;            //    26     2
+        __u8                       _pad[4];              //    28     4
+
+        // size: 32, cachelines: 1, members: 6
+        // last cacheline: 32 bytes
+};
+*/
+
+type findXattrs struct {
+	nextIno    uint64
+	name       uintptr
+	inodesBuf  uintptr
+	nameSize   uint16
+	inodeCount uint16
+	_          [4]uint8
 }

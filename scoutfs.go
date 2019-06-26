@@ -55,7 +55,7 @@ func NewQuery(f *os.File, opts ...Option) *Query {
 	return q
 }
 
-// Option sets various options for NewWalkHandle
+// Option sets various options for NewQuery
 type Option func(*Query)
 
 // ByMSeq gets inodes in range of metadata sequence from, to inclusive
@@ -94,12 +94,7 @@ func (q *Query) Next() ([]InodesEntry, error) {
 		index:   q.index,
 	}
 
-	pack, err := query.pack()
-	if err != nil {
-		return nil, err
-	}
-
-	n, err := scoutfsctl(q.fsfd.Fd(), IOCQUERYINODES, uintptr(unsafe.Pointer(&pack)))
+	n, err := scoutfsctl(q.fsfd.Fd(), IOCQUERYINODES, uintptr(unsafe.Pointer(&query)))
 	if err != nil {
 		return nil, err
 	}
@@ -113,17 +108,7 @@ func (q *Query) Next() ([]InodesEntry, error) {
 
 	var e InodesEntry
 	for i := 0; i < n; i++ {
-		//packed scoutfs_ioctl_walk_inodes_entry requires
-		//unpacking each member individually
-		err := binary.Read(rbuf, binary.LittleEndian, &e.Major)
-		if err != nil {
-			return nil, err
-		}
-		err = binary.Read(rbuf, binary.LittleEndian, &e.Minor)
-		if err != nil {
-			return nil, err
-		}
-		err = binary.Read(rbuf, binary.LittleEndian, &e.Ino)
+		err := binary.Read(rbuf, binary.LittleEndian, &e)
 		if err != nil {
 			return nil, err
 		}
@@ -187,10 +172,8 @@ func FSetAttrMore(f *os.File, version, size, flags uint64, ctime time.Time) erro
 		dataVersion: version,
 		iSize:       size,
 		flags:       flags,
-		ctime: scoutfsTimespec{
-			sec:  ctime.Unix(),
-			nsec: nsec,
-		},
+		ctimesec:    uint64(ctime.Unix()),
+		ctimensec:   uint32(nsec),
 	}
 
 	_, err := scoutfsctl(f.Fd(), IOCSETATTRMORE, uintptr(unsafe.Pointer(&s)))
@@ -357,4 +340,134 @@ func (w *Waiters) Next() ([]DataWaitingEntry, error) {
 	w.iblock = inodes[n-1].Iblock
 
 	return inodes, nil
+}
+
+// XattrQuery to keep track of in-process xattr query
+type XattrQuery struct {
+	next  uint64
+	batch uint32
+	key   string
+	fsfd  *os.File
+}
+
+// NewXattrQuery creates a new scoutfs Xattr Query
+// Specify query xattr key
+// and specify optinally batching with WithXBatchSize()
+// An open file within scoutfs is supplied for ioctls
+// (usually just the base mount point directory)
+func NewXattrQuery(f *os.File, key string, opts ...XOption) *XattrQuery {
+	q := &XattrQuery{
+		//default batch size is 128
+		batch: 128,
+		key:   key,
+		fsfd:  f,
+	}
+
+	for _, opt := range opts {
+		opt(q)
+	}
+
+	return q
+}
+
+// XOption sets various options for NewXattrQuery
+type XOption func(*XattrQuery)
+
+// WithXBatchSize sets the max number of inodes to be returned at a time
+func WithXBatchSize(size uint32) XOption {
+	return func(q *XattrQuery) {
+		q.batch = size
+	}
+}
+
+// WithXStartIno starts query at speficied inode
+func WithXStartIno(ino uint64) XOption {
+	return func(q *XattrQuery) {
+		q.next = ino
+	}
+}
+
+// Next gets the next batch of inodes
+func (q *XattrQuery) Next() ([]uint64, error) {
+	buf := make([]byte, 8*int(q.batch))
+	name := []byte(q.key)
+	query := findXattrs{
+		nextIno:    q.next,
+		name:       uintptr(unsafe.Pointer(&name[0])),
+		inodesBuf:  uintptr(unsafe.Pointer(&buf[0])),
+		nameSize:   uint16(len(name)),
+		inodeCount: uint16(q.batch),
+	}
+
+	n, err := scoutfsctl(q.fsfd.Fd(), IOCFINDXATTRS, uintptr(unsafe.Pointer(&query)))
+	if err != nil {
+		return nil, err
+	}
+
+	if n == 0 {
+		return nil, nil
+	}
+
+	rbuf := bytes.NewReader(buf)
+	var inodes []uint64
+
+	var e uint64
+	for i := 0; i < n; i++ {
+		err := binary.Read(rbuf, binary.LittleEndian, &e)
+		if err != nil {
+			return nil, err
+		}
+
+		inodes = append(inodes, e)
+	}
+
+	q.next = e
+	q.next++
+
+	return inodes, nil
+}
+
+// ListXattrRaw holds info for iterating on xattrs
+type ListXattrRaw struct {
+	lxr *listXattrRaw
+	f   *os.File
+}
+
+// NewListXattrRaw will list all scoutfs xattrs (including hidden) for file
+func NewListXattrRaw(f *os.File) *ListXattrRaw {
+	return &ListXattrRaw{
+		f:   f,
+		lxr: &listXattrRaw{},
+	}
+}
+
+// Next gets next set of results, complete when string slice is nil
+func (l *ListXattrRaw) Next() ([]string, error) {
+	l.lxr.bufSize = 256 * 1024
+	buf := make([]byte, 256*1024)
+	l.lxr.buf = uintptr(unsafe.Pointer(&buf[0]))
+
+	n, err := scoutfsctl(l.f.Fd(), IOCFINDXATTRS, uintptr(unsafe.Pointer(&l.lxr)))
+	if err != nil {
+		return nil, err
+	}
+
+	if n == 0 {
+		return nil, nil
+	}
+
+	return bufToStrings(buf[:n]), nil
+}
+
+func bufToStrings(b []byte) []string {
+	var s []string
+	for {
+		i := bytes.IndexByte(b, byte(0))
+		if i == -1 {
+			break
+		}
+		s = append(s, string(b[0:i]))
+		b = b[i+1:]
+	}
+	return s
 }
