@@ -447,7 +447,7 @@ func (l *ListXattrRaw) Next() ([]string, error) {
 	buf := make([]byte, 256*1024)
 	l.lxr.buf = uintptr(unsafe.Pointer(&buf[0]))
 
-	n, err := scoutfsctl(l.f.Fd(), IOCFINDXATTRS, uintptr(unsafe.Pointer(&l.lxr)))
+	n, err := scoutfsctl(l.f.Fd(), IOCLISTXATTRRAW, uintptr(unsafe.Pointer(l.lxr)))
 	if err != nil {
 		return nil, err
 	}
