@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	max64 = 0xffffffffffffffff
-	max32 = 0xffffffff
+	max64   = 0xffffffffffffffff
+	max32   = 0xffffffff
+	pathmax = 1024
 )
 
 // Query to keep track of in-process query
@@ -87,11 +88,11 @@ func WithBatchSize(size uint32) Option {
 func (q *Query) Next() ([]InodesEntry, error) {
 	buf := make([]byte, int(unsafe.Sizeof(InodesEntry{}))*int(q.batch))
 	query := queryInodes{
-		first:   q.first,
-		last:    q.last,
-		entries: uintptr(unsafe.Pointer(&buf[0])),
-		count:   q.batch,
-		index:   q.index,
+		First:       q.first,
+		Last:        q.last,
+		Entries_ptr: uint64(uintptr(unsafe.Pointer(&buf[0]))),
+		Nr_entries:  q.batch,
+		Index:       q.index,
 	}
 
 	n, err := scoutfsctl(q.fsfd.Fd(), IOCQUERYINODES, uintptr(unsafe.Pointer(&query)))
@@ -141,7 +142,7 @@ func StatMore(path string) (Stat, error) {
 
 // FStatMore returns scoutfs specific metadata for file handle
 func FStatMore(f *os.File) (Stat, error) {
-	s := Stat{ValidBytes: uint64(unsafe.Sizeof(Stat{}))}
+	s := Stat{Valid_bytes: uint64(unsafe.Sizeof(Stat{}))}
 
 	_, err := scoutfsctl(f.Fd(), IOCSTATMORE, uintptr(unsafe.Pointer(&s)))
 	if err != nil {
@@ -169,26 +170,34 @@ func FSetAttrMore(f *os.File, version, size, flags uint64, ctime time.Time) erro
 		nsec = int32(ctime.UnixNano())
 	}
 	s := setattrMore{
-		dataVersion: version,
-		iSize:       size,
-		flags:       flags,
-		ctimesec:    uint64(ctime.Unix()),
-		ctimensec:   uint32(nsec),
+		Data_version: version,
+		I_size:       size,
+		Flags:        flags,
+		Ctime_sec:    uint64(ctime.Unix()),
+		Ctime_nsec:   uint32(nsec),
 	}
 
 	_, err := scoutfsctl(f.Fd(), IOCSETATTRMORE, uintptr(unsafe.Pointer(&s)))
 	return err
 }
 
+type inoPathResult struct {
+	DirIno   uint64
+	DirPos   uint64
+	PathSize uint16
+	_        [6]uint8
+	Path     [pathmax]byte
+}
+
 // InoToPath converts an inode number to a path in the filesystem
 // An open file within scoutfs is supplied for ioctls
 // (usually just the base mount point directory)
 func InoToPath(dirfd *os.File, ino uint64) (string, error) {
-	var res InoPathResult
-	ip := InoPath{
-		Ino:        ino,
-		ResultPtr:  uint64(uintptr(unsafe.Pointer(&res))),
-		ResultSize: uint16(unsafe.Sizeof(res)),
+	var res inoPathResult
+	ip := inoPath{
+		Ino:          ino,
+		Result_ptr:   uint64(uintptr(unsafe.Pointer(&res))),
+		Result_bytes: uint16(unsafe.Sizeof(res)),
 	}
 
 	_, err := scoutfsctl(dirfd.Fd(), IOCINOPATH, uintptr(unsafe.Pointer(&ip)))
@@ -228,9 +237,9 @@ func ReleaseFile(path string, version uint64) error {
 
 // FReleaseFile marks file offline and frees associated extents
 func FReleaseFile(f *os.File, version uint64) error {
-	r := IocRelease{
-		Count:       math.MaxUint64,
-		DataVersion: version,
+	r := iocRelease{
+		Count:   math.MaxUint64,
+		Version: version,
 	}
 
 	_, err := scoutfsctl(f.Fd(), IOCRELEASE, uintptr(unsafe.Pointer(&r)))
@@ -250,11 +259,11 @@ func StageFile(path string, version, offset uint64, b []byte) error {
 
 // FStageFile rehydrates offline file
 func FStageFile(f *os.File, version, offset uint64, b []byte) error {
-	r := IocStage{
-		DataVersion: version,
-		BufPtr:      uint64(uintptr(unsafe.Pointer(&b[0]))),
-		Offset:      offset,
-		count:       int32(len(b)),
+	r := iocStage{
+		Data_version: version,
+		Buf_ptr:      uint64(uintptr(unsafe.Pointer(&b[0]))),
+		Offset:       offset,
+		Count:        int32(len(b)),
 	}
 
 	_, err := scoutfsctl(f.Fd(), IOCSTAGE, uintptr(unsafe.Pointer(&r)))
@@ -300,10 +309,10 @@ func WithWaitersCount(size uint16) WOption {
 func (w *Waiters) Next() ([]DataWaitingEntry, error) {
 	buf := make([]byte, int(unsafe.Sizeof(DataWaitingEntry{}))*int(w.batch))
 	dataWaiting := dataWaiting{
-		afterIno:    w.ino,
-		afterIblock: w.iblock,
-		entries:     uintptr(unsafe.Pointer(&buf[0])),
-		count:       w.batch,
+		After_ino:    w.ino,
+		After_iblock: w.iblock,
+		Ents_ptr:     uint64(uintptr(unsafe.Pointer(&buf[0]))),
+		Ents_nr:      w.batch,
 	}
 
 	n, err := scoutfsctl(w.fsfd.Fd(), IOCDATAWAITING, uintptr(unsafe.Pointer(&dataWaiting)))
@@ -392,11 +401,11 @@ func (q *XattrQuery) Next() ([]uint64, error) {
 	buf := make([]byte, 8*int(q.batch))
 	name := []byte(q.key)
 	query := findXattrs{
-		nextIno:    q.next,
-		name:       uintptr(unsafe.Pointer(&name[0])),
-		inodesBuf:  uintptr(unsafe.Pointer(&buf[0])),
-		nameSize:   uint16(len(name)),
-		inodeCount: uint16(q.batch),
+		Next_ino:   q.next,
+		Name_ptr:   uint64(uintptr(unsafe.Pointer(&name[0]))),
+		Inodes_ptr: uint64(uintptr(unsafe.Pointer(&buf[0]))),
+		Name_bytes: uint16(len(name)),
+		Nr_inodes:  uint16(q.batch),
 	}
 
 	n, err := scoutfsctl(q.fsfd.Fd(), IOCFINDXATTRS, uintptr(unsafe.Pointer(&query)))
@@ -427,27 +436,27 @@ func (q *XattrQuery) Next() ([]uint64, error) {
 	return inodes, nil
 }
 
-// ListXattrRaw holds info for iterating on xattrs
-type ListXattrRaw struct {
-	lxr *listXattrRaw
+// ListXattrHidden holds info for iterating on xattrs
+type ListXattrHidden struct {
+	lxr *listXattrHidden
 	f   *os.File
 }
 
-// NewListXattrRaw will list all scoutfs xattrs (including hidden) for file
-func NewListXattrRaw(f *os.File) *ListXattrRaw {
-	return &ListXattrRaw{
+// NewListXattrHidden will list all scoutfs xattrs (including hidden) for file
+func NewListXattrHidden(f *os.File) *ListXattrHidden {
+	return &ListXattrHidden{
 		f:   f,
-		lxr: &listXattrRaw{},
+		lxr: &listXattrHidden{},
 	}
 }
 
 // Next gets next set of results, complete when string slice is nil
-func (l *ListXattrRaw) Next() ([]string, error) {
-	l.lxr.bufSize = 256 * 1024
+func (l *ListXattrHidden) Next() ([]string, error) {
+	l.lxr.Buf_bytes = 256 * 1024
 	buf := make([]byte, 256*1024)
-	l.lxr.buf = uintptr(unsafe.Pointer(&buf[0]))
+	l.lxr.Buf_ptr = uint64(uintptr(unsafe.Pointer(&buf[0])))
 
-	n, err := scoutfsctl(l.f.Fd(), IOCLISTXATTRRAW, uintptr(unsafe.Pointer(l.lxr)))
+	n, err := scoutfsctl(l.f.Fd(), IOCLISTXATTRHIDDEN, uintptr(unsafe.Pointer(l.lxr)))
 	if err != nil {
 		return nil, err
 	}

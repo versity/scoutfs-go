@@ -30,12 +30,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	f, err := os.Open(os.Args[1])
+	f, err := os.OpenFile(os.Args[1], os.O_RDWR, 0)
 	if err != nil {
 		log.Fatalf("open %v: %v", os.Args[1], err)
 	}
 
-	lxr := scoutfs.NewListXattrRaw(f)
+	lxr := scoutfs.NewListXattrHidden(f)
 
 	for {
 		attrs, err := lxr.Next()

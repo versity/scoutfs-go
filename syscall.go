@@ -13,20 +13,31 @@ const (
 	FILEID_SCOUTFS = 0x81
 )
 
+type fileID struct {
+	Ino       uint64
+	ParentIno uint64
+}
+
+type fileHandle struct {
+	FidSize    uint32
+	HandleType int32
+	FID        fileID
+}
+
 // OpenByHandle is similar to OpenByID, but returns just the file descriptor
 // and does not have the added overhead of getting the filename
 // An open file within scoutfs is supplied for ioctls
 // (usually just the base mount point directory)
 func OpenByHandle(dirfd *os.File, ino uint64, flags int) (uintptr, error) {
-	h := &FileHandle{
-		FidSize:    uint32(unsafe.Sizeof(FileID{})),
+	h := &fileHandle{
+		FidSize:    uint32(unsafe.Sizeof(fileID{})),
 		HandleType: FILEID_SCOUTFS,
-		FID:        FileID{Ino: ino},
+		FID:        fileID{Ino: ino},
 	}
 	return openbyhandleat(dirfd.Fd(), h, flags)
 }
 
-func openbyhandleat(dirfd uintptr, handle *FileHandle, flags int) (uintptr, error) {
+func openbyhandleat(dirfd uintptr, handle *fileHandle, flags int) (uintptr, error) {
 	fd, _, e1 := syscall.Syscall6(SYS_OPENBYHANDLEAT, dirfd, uintptr(unsafe.Pointer(handle)), uintptr(flags), 0, 0, 0)
 	var err error
 	if e1 != 0 {
