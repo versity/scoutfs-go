@@ -14,6 +14,11 @@ import (
 	scoutfs "github.com/versity/scoutfs-go"
 )
 
+// # find possible inodes with indexed attribute, indx triggers scoutfs indexing
+// touch /mnt/scoutfs/file
+// setfattr -n scoutfs.indx.myattr /mnt/scoutfs/file
+// ./findxattr /mnt/scoutfs scoutfs.indx.myattr
+
 func main() {
 	if len(os.Args) != 3 || os.Args[1] == "-h" {
 		fmt.Fprintln(os.Stderr, "usage:", os.Args[0], "<mount point> <xattr key>")

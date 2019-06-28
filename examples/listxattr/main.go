@@ -14,6 +14,16 @@ import (
 	scoutfs "github.com/versity/scoutfs-go"
 )
 
+// # can list more attributes than getfattr
+// touch /mnt/scoutfs/file
+// for i in $(seq 1 10000); do  setfattr -n "user.lots-$i" /mnt/scoutfs/file; done
+// ./listxattr /mnt/scoutfs/file | wc -l
+//
+// # can list scoutfs hidden attrs
+// touch /mnt/scoutfs/file
+// setfattr -n scoutfs.hide.invisible /mnt/scoutfs/file
+// ./listxattr /mnt/scoutfs/file
+
 func main() {
 	if len(os.Args) != 2 || os.Args[1] == "-h" {
 		fmt.Fprintln(os.Stderr, "usage:", os.Args[0], "<filepath>")
