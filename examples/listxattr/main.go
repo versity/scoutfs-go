@@ -30,7 +30,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	f, err := os.OpenFile(os.Args[1], os.O_RDWR, 0)
+	f, err := os.OpenFile(os.Args[1], os.O_RDONLY, 0)
 	if err != nil {
 		log.Fatalf("open %v: %v", os.Args[1], err)
 	}
