@@ -10,16 +10,22 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io/ioutil"
 	"math"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 	"unsafe"
 )
 
 const (
-	max64   = 0xffffffffffffffff
-	max32   = 0xffffffff
-	pathmax = 1024
+	max64      = 0xffffffffffffffff
+	max32      = 0xffffffff
+	pathmax    = 1024
+	sysscoutfs = "/sys/fs/scoutfs/"
+	leaderfile = "quorum/is_leader"
+	serveraddr = "mount_options/server_addr"
 )
 
 // Query to keep track of in-process query
@@ -510,4 +516,54 @@ func GetIDs(f *os.File) (FSID, error) {
 		RandomID: stfs.Rid,
 		ShortID:  short,
 	}, nil
+}
+
+// IsLeader returns true if the path is the current scoutfs leader mount
+func IsLeader(path string) (bool, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return false, fmt.Errorf("open: %v", err)
+	}
+	defer f.Close()
+
+	id, err := GetIDs(f)
+	if err != nil {
+		return false, fmt.Errorf("error GetIDs: %v", err)
+	}
+
+	sfspath := filepath.Join(sysscoutfs, id.ShortID, leaderfile)
+	b, err := ioutil.ReadFile(sfspath)
+	if err != nil {
+		return false, fmt.Errorf("read %q: %v", sfspath, err)
+	}
+
+	return strings.TrimSuffix(string(b), "\n") == "1", nil
+}
+
+// GetServerAddr returns the server IP address string.  This is only valid
+// if run on a quorum member mount.
+func GetServerAddr(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", fmt.Errorf("open: %v", err)
+	}
+	defer f.Close()
+
+	id, err := GetIDs(f)
+	if err != nil {
+		return "", fmt.Errorf("error GetIDs: %v", err)
+	}
+
+	sfspath := filepath.Join(sysscoutfs, id.ShortID, serveraddr)
+	b, err := ioutil.ReadFile(sfspath)
+	if err != nil {
+		return "", fmt.Errorf("read %q: %v", sfspath, err)
+	}
+
+	fields := strings.Split(string(b), ":")
+	if len(fields) != 2 {
+		return "", fmt.Errorf("unknown addr")
+	}
+
+	return fields[0], nil
 }
