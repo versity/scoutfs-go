@@ -10,6 +10,7 @@ package scoutfs
 
 // use this to generate the types for scoutfs:
 // go tool cgo -godefs c_defs_linux.go >scoutfsdefs.go
+// above command requires scoutfs-devel package be installed first
 
 // #include <unistd.h>
 // #include <stdio.h>
