@@ -9,7 +9,7 @@
 package scoutfs
 
 // use this to generate the types for scoutfs:
-// go tool cgo -godefs c_defs.go >scoutfsdefs.go
+// go tool cgo -godefs c_defs_linux.go >scoutfsdefs.go
 
 // #include <unistd.h>
 // #include <stdio.h>
@@ -46,6 +46,7 @@ package scoutfs
 // typedef struct scoutfs_ioctl_setattr_more scoutfs_ioctl_setattr_more_t;
 // typedef struct scoutfs_ioctl_listxattr_hidden scoutfs_ioctl_listxattr_hidden_t;
 // typedef struct scoutfs_ioctl_find_xattrs scoutfs_ioctl_find_xattrs_t;
+// typedef struct scoutfs_ioctl_statfs_more scoutfs_ioctl_statfs_more_t;
 import "C"
 
 const IOCQUERYINODES = C.SCOUTFS_IOC_WALK_INODES
@@ -57,6 +58,7 @@ const IOCDATAWAITING = C.SCOUTFS_IOC_DATA_WAITING
 const IOCSETATTRMORE = C.SCOUTFS_IOC_SETATTR_MORE
 const IOCLISTXATTRHIDDEN = C.SCOUTFS_IOC_LISTXATTR_HIDDEN
 const IOCFINDXATTRS = C.SCOUTFS_IOC_FIND_XATTRS
+const IOCSTATFSMORE = C.SCOUTFS_IOC_STATFS_MORE
 
 const QUERYINODESMETASEQ = C.SCOUTFS_IOC_WALK_INODES_META_SEQ
 const QUERYINODESDATASEQ = C.SCOUTFS_IOC_WALK_INODES_DATA_SEQ
@@ -76,3 +78,6 @@ type dataWaiting C.scoutfs_ioctl_data_waiting_t
 type setattrMore C.scoutfs_ioctl_setattr_more_t
 type listXattrHidden C.scoutfs_ioctl_listxattr_hidden_t
 type findXattrs C.scoutfs_ioctl_find_xattrs_t
+type statfsMore C.scoutfs_ioctl_statfs_more_t
+
+const sizeofstatfsMore = C.sizeof_scoutfs_ioctl_statfs_more_t

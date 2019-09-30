@@ -9,6 +9,7 @@ package scoutfs
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"math"
 	"os"
 	"time"
@@ -479,4 +480,34 @@ func bufToStrings(b []byte) []string {
 		b = b[i+1:]
 	}
 	return s
+}
+
+// FSID contains the statfs more info for mounted scoutfs filesystem
+type FSID struct {
+	FSID     uint64
+	RandomID uint64
+	ShortID  string
+}
+
+// GetIDs gets the statfs more filesystem and random id from file handle within
+// scoutfs filesystem
+func GetIDs(f *os.File) (FSID, error) {
+	stfs := statfsMore{Bytes: sizeofstatfsMore}
+
+	_, err := scoutfsctl(f.Fd(), IOCSTATFSMORE, uintptr(unsafe.Pointer(&stfs)))
+	if err != nil {
+		return FSID{}, err
+	}
+	if stfs.Bytes != sizeofstatfsMore {
+		return FSID{}, fmt.Errorf("unexpected return size: %v", stfs.Bytes)
+	}
+
+	short := fmt.Sprintf("f.%v.r.%v",
+		fmt.Sprintf("%016x", stfs.Fsid)[:][:6], fmt.Sprintf("%016x", stfs.Rid)[:][:6])
+
+	return FSID{
+		FSID:     stfs.Fsid,
+		RandomID: stfs.Rid,
+		ShortID:  short,
+	}, nil
 }

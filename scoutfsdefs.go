@@ -12,6 +12,7 @@ const IOCDATAWAITING = 0x80287307
 const IOCSETATTRMORE = 0x40287308
 const IOCLISTXATTRHIDDEN = 0x80187309
 const IOCFINDXATTRS = 0x8020730a
+const IOCSTATFSMORE = 0x8018730b
 
 const QUERYINODESMETASEQ = 0x0
 const QUERYINODESDATASEQ = 0x1
@@ -98,3 +99,10 @@ type findXattrs struct {
 	Nr_inodes	uint16
 	X_pad		[4]uint8
 }
+type statfsMore struct {
+	Bytes	uint64
+	Fsid	uint64
+	Rid	uint64
+}
+
+const sizeofstatfsMore = 0x18
