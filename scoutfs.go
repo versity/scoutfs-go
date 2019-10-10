@@ -350,6 +350,12 @@ func (w *Waiters) Next() ([]DataWaitingEntry, error) {
 	return inodes, nil
 }
 
+// Reset sets the data waiters query back to inode 0, iblock 0
+func (w *Waiters) Reset() {
+	w.ino = 0
+	w.iblock = 0
+}
+
 // XattrQuery to keep track of in-process xattr query
 type XattrQuery struct {
 	next  uint64
