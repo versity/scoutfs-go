@@ -336,15 +336,7 @@ func (w *Waiters) Next() ([]DataWaitingEntry, error) {
 
 	var e DataWaitingEntry
 	for i := 0; i < n; i++ {
-		err := binary.Read(rbuf, binary.LittleEndian, &e.Ino)
-		if err != nil {
-			return nil, err
-		}
-		err = binary.Read(rbuf, binary.LittleEndian, &e.Iblock)
-		if err != nil {
-			return nil, err
-		}
-		err = binary.Read(rbuf, binary.LittleEndian, &e.Op)
+		err := binary.Read(rbuf, binary.LittleEndian, &e)
 		if err != nil {
 			return nil, err
 		}
