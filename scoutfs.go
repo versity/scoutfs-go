@@ -22,7 +22,7 @@ import (
 const (
 	max64      = 0xffffffffffffffff
 	max32      = 0xffffffff
-	pathmax    = 1024
+	pathmax    = 4096
 	sysscoutfs = "/sys/fs/scoutfs/"
 	leaderfile = "quorum/is_leader"
 	serveraddr = "mount_options/server_addr"
