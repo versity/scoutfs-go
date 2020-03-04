@@ -7,10 +7,10 @@ import (
 )
 
 const (
-	// SYS_OPENBYHANDLEAT linux system call
-	SYS_OPENBYHANDLEAT = 304
-	// FILEID_SCOUTFS for scoutfs file handle
-	FILEID_SCOUTFS = 0x81
+	// sysOpenByHandleAt linux system call
+	sysOpenByHandleAt = 304
+	// fileIDScoutfs for scoutfs file handle
+	fileIDScoutfs = 0x81
 )
 
 type fileID struct {
@@ -31,14 +31,14 @@ type fileHandle struct {
 func OpenByHandle(dirfd *os.File, ino uint64, flags int) (uintptr, error) {
 	h := &fileHandle{
 		FidSize:    uint32(unsafe.Sizeof(fileID{})),
-		HandleType: FILEID_SCOUTFS,
+		HandleType: fileIDScoutfs,
 		FID:        fileID{Ino: ino},
 	}
 	return openbyhandleat(dirfd.Fd(), h, flags)
 }
 
 func openbyhandleat(dirfd uintptr, handle *fileHandle, flags int) (uintptr, error) {
-	fd, _, e1 := syscall.Syscall6(SYS_OPENBYHANDLEAT, dirfd, uintptr(unsafe.Pointer(handle)), uintptr(flags), 0, 0, 0)
+	fd, _, e1 := syscall.Syscall6(sysOpenByHandleAt, dirfd, uintptr(unsafe.Pointer(handle)), uintptr(flags), 0, 0, 0)
 	var err error
 	if e1 != 0 {
 		err = errnoErr(e1)
