@@ -254,10 +254,10 @@ func FReleaseFile(f *os.File, version uint64) error {
 }
 
 // StageFile rehydrates offline file
-func StageFile(path string, version, offset uint64, b []byte) error {
+func StageFile(path string, version, offset uint64, b []byte) (int, error) {
 	f, err := os.OpenFile(path, os.O_WRONLY, 0)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer f.Close()
 
@@ -265,7 +265,7 @@ func StageFile(path string, version, offset uint64, b []byte) error {
 }
 
 // FStageFile rehydrates offline file
-func FStageFile(f *os.File, version, offset uint64, b []byte) error {
+func FStageFile(f *os.File, version, offset uint64, b []byte) (int, error) {
 	r := iocStage{
 		Data_version: version,
 		Buf_ptr:      uint64(uintptr(unsafe.Pointer(&b[0]))),
@@ -273,8 +273,7 @@ func FStageFile(f *os.File, version, offset uint64, b []byte) error {
 		Count:        int32(len(b)),
 	}
 
-	_, err := scoutfsctl(f.Fd(), IOCSTAGE, uintptr(unsafe.Pointer(&r)))
-	return err
+	return scoutfsctl(f.Fd(), IOCSTAGE, uintptr(unsafe.Pointer(&r)))
 }
 
 // Waiters to keep track of data waiters
