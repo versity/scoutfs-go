@@ -34,11 +34,11 @@ func OpenByHandle(dirfd *os.File, ino uint64, flags int) (uintptr, error) {
 		HandleType: fileIDScoutfs,
 		FID:        fileID{Ino: ino},
 	}
-	return openbyhandleat(dirfd.Fd(), h, flags)
+	return openbyhandleat(dirfd, h, flags)
 }
 
-func openbyhandleat(dirfd uintptr, handle *fileHandle, flags int) (uintptr, error) {
-	fd, _, e1 := syscall.Syscall6(sysOpenByHandleAt, dirfd, uintptr(unsafe.Pointer(handle)), uintptr(flags), 0, 0, 0)
+func openbyhandleat(dirfd *os.File, handle *fileHandle, flags int) (uintptr, error) {
+	fd, _, e1 := syscall.Syscall6(sysOpenByHandleAt, uintptr(dirfd.Fd()), uintptr(unsafe.Pointer(handle)), uintptr(flags), 0, 0, 0)
 	var err error
 	if e1 != 0 {
 		err = errnoErr(e1)
@@ -46,8 +46,8 @@ func openbyhandleat(dirfd uintptr, handle *fileHandle, flags int) (uintptr, erro
 	return fd, err
 }
 
-func scoutfsctl(fd, cmd, ptr uintptr) (int, error) {
-	count, _, e1 := syscall.Syscall(syscall.SYS_IOCTL, fd, cmd, ptr)
+func scoutfsctl(f *os.File, cmd int, ptr unsafe.Pointer) (int, error) {
+	count, _, e1 := syscall.Syscall(syscall.SYS_IOCTL, uintptr(f.Fd()), uintptr(cmd), uintptr(ptr))
 	var err error
 	if e1 != 0 {
 		err = errnoErr(e1)

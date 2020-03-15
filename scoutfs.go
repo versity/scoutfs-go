@@ -102,7 +102,7 @@ func (q *Query) Next() ([]InodesEntry, error) {
 		Index:       q.index,
 	}
 
-	n, err := scoutfsctl(q.fsfd.Fd(), IOCQUERYINODES, uintptr(unsafe.Pointer(&query)))
+	n, err := scoutfsctl(q.fsfd, IOCQUERYINODES, unsafe.Pointer(&query))
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +151,7 @@ func StatMore(path string) (Stat, error) {
 func FStatMore(f *os.File) (Stat, error) {
 	s := Stat{Valid_bytes: uint64(unsafe.Sizeof(Stat{}))}
 
-	_, err := scoutfsctl(f.Fd(), IOCSTATMORE, uintptr(unsafe.Pointer(&s)))
+	_, err := scoutfsctl(f, IOCSTATMORE, unsafe.Pointer(&s))
 	if err != nil {
 		return Stat{}, err
 	}
@@ -184,7 +184,7 @@ func FSetAttrMore(f *os.File, version, size, flags uint64, ctime time.Time) erro
 		Ctime_nsec:   uint32(nsec),
 	}
 
-	_, err := scoutfsctl(f.Fd(), IOCSETATTRMORE, uintptr(unsafe.Pointer(&s)))
+	_, err := scoutfsctl(f, IOCSETATTRMORE, unsafe.Pointer(&s))
 	return err
 }
 
@@ -207,7 +207,7 @@ func InoToPath(dirfd *os.File, ino uint64) (string, error) {
 		Result_bytes: uint16(unsafe.Sizeof(res)),
 	}
 
-	_, err := scoutfsctl(dirfd.Fd(), IOCINOPATH, uintptr(unsafe.Pointer(&ip)))
+	_, err := scoutfsctl(dirfd, IOCINOPATH, unsafe.Pointer(&ip))
 	if err != nil {
 		return "", err
 	}
@@ -249,7 +249,7 @@ func FReleaseFile(f *os.File, version uint64) error {
 		Version: version,
 	}
 
-	_, err := scoutfsctl(f.Fd(), IOCRELEASE, uintptr(unsafe.Pointer(&r)))
+	_, err := scoutfsctl(f, IOCRELEASE, unsafe.Pointer(&r))
 	return err
 }
 
@@ -273,7 +273,7 @@ func FStageFile(f *os.File, version, offset uint64, b []byte) (int, error) {
 		Count:        int32(len(b)),
 	}
 
-	return scoutfsctl(f.Fd(), IOCSTAGE, uintptr(unsafe.Pointer(&r)))
+	return scoutfsctl(f, IOCSTAGE, unsafe.Pointer(&r))
 }
 
 // Waiters to keep track of data waiters
@@ -321,7 +321,7 @@ func (w *Waiters) Next() ([]DataWaitingEntry, error) {
 		Ents_nr:      w.batch,
 	}
 
-	n, err := scoutfsctl(w.fsfd.Fd(), IOCDATAWAITING, uintptr(unsafe.Pointer(&dataWaiting)))
+	n, err := scoutfsctl(w.fsfd, IOCDATAWAITING, unsafe.Pointer(&dataWaiting))
 	if err != nil {
 		return nil, err
 	}
@@ -412,7 +412,7 @@ func (q *XattrQuery) Next() ([]uint64, error) {
 		Nr_inodes:  uint16(q.batch),
 	}
 
-	n, err := scoutfsctl(q.fsfd.Fd(), IOCFINDXATTRS, uintptr(unsafe.Pointer(&query)))
+	n, err := scoutfsctl(q.fsfd, IOCFINDXATTRS, unsafe.Pointer(&query))
 	if err != nil {
 		return nil, err
 	}
@@ -460,7 +460,7 @@ func (l *ListXattrHidden) Next() ([]string, error) {
 	buf := make([]byte, 256*1024)
 	l.lxr.Buf_ptr = uint64(uintptr(unsafe.Pointer(&buf[0])))
 
-	n, err := scoutfsctl(l.f.Fd(), IOCLISTXATTRHIDDEN, uintptr(unsafe.Pointer(l.lxr)))
+	n, err := scoutfsctl(l.f, IOCLISTXATTRHIDDEN, unsafe.Pointer(l.lxr))
 	if err != nil {
 		return nil, err
 	}
@@ -497,7 +497,7 @@ type FSID struct {
 func GetIDs(f *os.File) (FSID, error) {
 	stfs := statfsMore{Bytes: sizeofstatfsMore}
 
-	_, err := scoutfsctl(f.Fd(), IOCSTATFSMORE, uintptr(unsafe.Pointer(&stfs)))
+	_, err := scoutfsctl(f, IOCSTATFSMORE, unsafe.Pointer(&stfs))
 	if err != nil {
 		return FSID{}, err
 	}
