@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 	"unsafe"
 )
@@ -215,6 +216,44 @@ func InoToPath(dirfd *os.File, ino uint64) (string, error) {
 	b := bytes.Trim(res.Path[:res.PathSize], "\x00")
 
 	return string(b), nil
+}
+
+// InoToPaths converts an inode number to all paths in the filesystem
+// An open file within scoutfs is supplied for ioctls
+// (usually just the base mount point directory)
+func InoToPaths(dirfd *os.File, ino uint64) ([]string, error) {
+	var res inoPathResult
+	ip := inoPath{
+		Ino:          ino,
+		Result_ptr:   uint64(uintptr(unsafe.Pointer(&res))),
+		Result_bytes: uint16(unsafe.Sizeof(res)),
+	}
+
+	var paths []string
+	for {
+		_, err := scoutfsctl(dirfd, IOCINOPATH, unsafe.Pointer(&ip))
+		if err == syscall.ENOENT {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		b := bytes.Trim(res.Path[:res.PathSize], "\x00")
+		paths = append(paths, string(b))
+
+		ip.Dir_ino = res.DirIno
+		ip.Dir_pos = res.DirPos
+		ip.Dir_pos++
+		if ip.Dir_pos == 0 {
+			ip.Dir_ino++
+			if ip.Dir_ino == 0 {
+				break
+			}
+		}
+	}
+
+	return paths, nil
 }
 
 // OpenByID will open a file by inode returning a typical *os.File
