@@ -36,6 +36,7 @@ type Query struct {
 	index uint8
 	batch uint32
 	fsfd  *os.File
+	buf   []byte
 }
 
 // Time represents a time value in seconds and nanoseconds
@@ -60,6 +61,8 @@ func NewQuery(f *os.File, opts ...Option) *Query {
 	for _, opt := range opts {
 		opt(q)
 	}
+
+	q.buf = make([]byte, int(unsafe.Sizeof(InodesEntry{}))*int(q.batch))
 
 	return q
 }
@@ -94,11 +97,10 @@ func WithBatchSize(size uint32) Option {
 
 // Next gets the next batch of inodes
 func (q *Query) Next() ([]InodesEntry, error) {
-	buf := make([]byte, int(unsafe.Sizeof(InodesEntry{}))*int(q.batch))
 	query := queryInodes{
 		First:       q.first,
 		Last:        q.last,
-		Entries_ptr: uint64(uintptr(unsafe.Pointer(&buf[0]))),
+		Entries_ptr: uint64(uintptr(unsafe.Pointer(&q.buf[0]))),
 		Nr_entries:  q.batch,
 		Index:       q.index,
 	}
@@ -112,7 +114,7 @@ func (q *Query) Next() ([]InodesEntry, error) {
 		return nil, nil
 	}
 
-	rbuf := bytes.NewReader(buf)
+	rbuf := bytes.NewReader(q.buf)
 	var inodes []InodesEntry
 
 	var e InodesEntry
@@ -321,6 +323,7 @@ type Waiters struct {
 	iblock uint64
 	batch  uint16
 	fsfd   *os.File
+	buf    []byte
 }
 
 // NewWaiters creates a new scoutfs Waiters
@@ -337,6 +340,8 @@ func NewWaiters(f *os.File, opts ...WOption) *Waiters {
 		opt(w)
 	}
 
+	w.buf = make([]byte, int(unsafe.Sizeof(DataWaitingEntry{}))*int(w.batch))
+
 	return w
 }
 
@@ -352,11 +357,10 @@ func WithWaitersCount(size uint16) WOption {
 
 // Next gets the next batch of data waiters, returns nil, nil if no waiters
 func (w *Waiters) Next() ([]DataWaitingEntry, error) {
-	buf := make([]byte, int(unsafe.Sizeof(DataWaitingEntry{}))*int(w.batch))
 	dataWaiting := dataWaiting{
 		After_ino:    w.ino,
 		After_iblock: w.iblock,
-		Ents_ptr:     uint64(uintptr(unsafe.Pointer(&buf[0]))),
+		Ents_ptr:     uint64(uintptr(unsafe.Pointer(&w.buf[0]))),
 		Ents_nr:      w.batch,
 	}
 
@@ -369,7 +373,7 @@ func (w *Waiters) Next() ([]DataWaitingEntry, error) {
 		return nil, nil
 	}
 
-	rbuf := bytes.NewReader(buf)
+	rbuf := bytes.NewReader(w.buf)
 	var inodes []DataWaitingEntry
 
 	var e DataWaitingEntry
@@ -400,6 +404,7 @@ type XattrQuery struct {
 	batch uint32
 	key   string
 	fsfd  *os.File
+	buf   []byte
 }
 
 // NewXattrQuery creates a new scoutfs Xattr Query
@@ -418,6 +423,8 @@ func NewXattrQuery(f *os.File, key string, opts ...XOption) *XattrQuery {
 	for _, opt := range opts {
 		opt(q)
 	}
+
+	q.buf = make([]byte, 8*int(q.batch))
 
 	return q
 }
@@ -441,12 +448,11 @@ func WithXStartIno(ino uint64) XOption {
 
 // Next gets the next batch of inodes
 func (q *XattrQuery) Next() ([]uint64, error) {
-	buf := make([]byte, 8*int(q.batch))
 	name := []byte(q.key)
 	query := findXattrs{
 		Next_ino:   q.next,
 		Name_ptr:   uint64(uintptr(unsafe.Pointer(&name[0]))),
-		Inodes_ptr: uint64(uintptr(unsafe.Pointer(&buf[0]))),
+		Inodes_ptr: uint64(uintptr(unsafe.Pointer(&q.buf[0]))),
 		Name_bytes: uint16(len(name)),
 		Nr_inodes:  uint16(q.batch),
 	}
@@ -460,7 +466,7 @@ func (q *XattrQuery) Next() ([]uint64, error) {
 		return nil, nil
 	}
 
-	rbuf := bytes.NewReader(buf)
+	rbuf := bytes.NewReader(q.buf)
 	var inodes []uint64
 
 	var e uint64
@@ -483,6 +489,7 @@ func (q *XattrQuery) Next() ([]uint64, error) {
 type ListXattrHidden struct {
 	lxr *listXattrHidden
 	f   *os.File
+	buf []byte
 }
 
 // NewListXattrHidden will list all scoutfs xattrs (including hidden) for file
@@ -490,14 +497,14 @@ func NewListXattrHidden(f *os.File) *ListXattrHidden {
 	return &ListXattrHidden{
 		f:   f,
 		lxr: &listXattrHidden{},
+		buf: make([]byte, 256*1024),
 	}
 }
 
 // Next gets next set of results, complete when string slice is nil
 func (l *ListXattrHidden) Next() ([]string, error) {
 	l.lxr.Buf_bytes = 256 * 1024
-	buf := make([]byte, 256*1024)
-	l.lxr.Buf_ptr = uint64(uintptr(unsafe.Pointer(&buf[0])))
+	l.lxr.Buf_ptr = uint64(uintptr(unsafe.Pointer(&l.buf[0])))
 
 	n, err := scoutfsctl(l.f, IOCLISTXATTRHIDDEN, unsafe.Pointer(l.lxr))
 	if err != nil {
@@ -508,7 +515,7 @@ func (l *ListXattrHidden) Next() ([]string, error) {
 		return nil, nil
 	}
 
-	return bufToStrings(buf[:n]), nil
+	return bufToStrings(l.buf[:n]), nil
 }
 
 func bufToStrings(b []byte) []string {
