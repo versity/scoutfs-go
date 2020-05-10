@@ -21,12 +21,13 @@ import (
 )
 
 const (
-	max64      = 0xffffffffffffffff
-	max32      = 0xffffffff
-	pathmax    = 4096
-	sysscoutfs = "/sys/fs/scoutfs/"
-	leaderfile = "quorum/is_leader"
-	serveraddr = "mount_options/server_addr"
+	max64           = 0xffffffffffffffff
+	max32           = 0xffffffff
+	pathmax         = 4096
+	sysscoutfs      = "/sys/fs/scoutfs/"
+	leaderfile      = "quorum/is_leader"
+	serveraddr      = "mount_options/server_addr"
+	listattrBufsize = 256 * 1024
 )
 
 // Query to keep track of in-process query
@@ -492,18 +493,22 @@ type ListXattrHidden struct {
 	buf []byte
 }
 
-// NewListXattrHidden will list all scoutfs xattrs (including hidden) for file
-func NewListXattrHidden(f *os.File) *ListXattrHidden {
+// NewListXattrHidden will list all scoutfs xattrs (including hidden) for file.
+// If passed in buffer is nil, call will allocate its own buffer.
+func NewListXattrHidden(f *os.File, b []byte) *ListXattrHidden {
+	if b == nil {
+		b = make([]byte, listattrBufsize)
+	}
 	return &ListXattrHidden{
 		f:   f,
 		lxr: &listXattrHidden{},
-		buf: make([]byte, 256*1024),
+		buf: b,
 	}
 }
 
 // Next gets next set of results, complete when string slice is nil
 func (l *ListXattrHidden) Next() ([]string, error) {
-	l.lxr.Buf_bytes = 256 * 1024
+	l.lxr.Buf_bytes = uint32(len(l.buf))
 	l.lxr.Buf_ptr = uint64(uintptr(unsafe.Pointer(&l.buf[0])))
 
 	n, err := scoutfsctl(l.f, IOCLISTXATTRHIDDEN, unsafe.Pointer(l.lxr))
