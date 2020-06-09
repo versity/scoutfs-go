@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 
 	"github.com/versity/scoutfs-go"
 )
@@ -35,8 +34,7 @@ func main() {
 			log.Fatalf("next(): %v", err)
 		}
 		if ents == nil {
-			time.Sleep(time.Second)
-			continue
+			break
 		}
 		for _, ent := range ents {
 			log.Printf("%+v", ent)
