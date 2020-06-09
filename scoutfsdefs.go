@@ -13,6 +13,7 @@ const IOCSETATTRMORE = 0x40287307
 const IOCLISTXATTRHIDDEN = 0x80187308
 const IOCFINDXATTRS = 0x80207309
 const IOCSTATFSMORE = 0x8018730a
+const IOCDATAWAITERR = 0x8030730b
 
 const QUERYINODESMETASEQ = 0x0
 const QUERYINODESDATASEQ = 0x1
@@ -76,6 +77,14 @@ type dataWaiting struct {
 	Ents_ptr	uint64
 	Ents_nr		uint16
 	X_pad		[6]uint8
+}
+type dataWaitErr struct {
+	Ino	uint64
+	Version	uint64
+	Offset	uint64
+	Count	uint64
+	Op	uint64
+	Err	int64
 }
 type setattrMore struct {
 	Data_version	uint64

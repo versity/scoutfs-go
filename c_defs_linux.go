@@ -32,6 +32,7 @@ package scoutfs
 // typedef uint32_t __le32;
 // typedef uint64_t __le64;
 // typedef int32_t __s32;
+// typedef int64_t __s64;
 // #define __packed
 // #include "/usr/include/scoutfs/ioctl.h"
 // typedef struct scoutfs_ioctl_walk_inodes_entry scoutfs_ioctl_walk_inodes_entry_t;
@@ -44,6 +45,7 @@ package scoutfs
 // typedef struct scoutfs_fid scoutfs_fid_t;
 // typedef struct scoutfs_ioctl_data_waiting_entry scoutfs_ioctl_data_waiting_entry_t;
 // typedef struct scoutfs_ioctl_data_waiting scoutfs_ioctl_data_waiting_t;
+// typedef struct scoutfs_ioctl_data_wait_err scoutfs_ioctl_data_wait_err_t;
 // typedef struct scoutfs_ioctl_setattr_more scoutfs_ioctl_setattr_more_t;
 // typedef struct scoutfs_ioctl_listxattr_hidden scoutfs_ioctl_listxattr_hidden_t;
 // typedef struct scoutfs_ioctl_find_xattrs scoutfs_ioctl_find_xattrs_t;
@@ -60,6 +62,7 @@ const IOCSETATTRMORE = C.SCOUTFS_IOC_SETATTR_MORE
 const IOCLISTXATTRHIDDEN = C.SCOUTFS_IOC_LISTXATTR_HIDDEN
 const IOCFINDXATTRS = C.SCOUTFS_IOC_FIND_XATTRS
 const IOCSTATFSMORE = C.SCOUTFS_IOC_STATFS_MORE
+const IOCDATAWAITERR = C.SCOUTFS_IOC_DATA_WAIT_ERR
 
 const QUERYINODESMETASEQ = C.SCOUTFS_IOC_WALK_INODES_META_SEQ
 const QUERYINODESDATASEQ = C.SCOUTFS_IOC_WALK_INODES_DATA_SEQ
@@ -76,6 +79,7 @@ type iocStage C.scoutfs_ioctl_stage_t
 type Stat C.scoutfs_ioctl_stat_more_t
 type DataWaitingEntry C.scoutfs_ioctl_data_waiting_entry_t
 type dataWaiting C.scoutfs_ioctl_data_waiting_t
+type dataWaitErr C.scoutfs_ioctl_data_wait_err_t
 type setattrMore C.scoutfs_ioctl_setattr_more_t
 type listXattrHidden C.scoutfs_ioctl_listxattr_hidden_t
 type findXattrs C.scoutfs_ioctl_find_xattrs_t

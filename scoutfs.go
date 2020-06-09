@@ -399,6 +399,27 @@ func (w *Waiters) Reset() {
 	w.iblock = 0
 }
 
+// SendDataWaitErr sends an error to the data waiter task indicating that
+// the data is no longer aviable.
+// An open file within scoutfs is supplied for ioctls
+// (usually just the base mount point directory)
+func SendDataWaitErr(dirfd *os.File, ino, version, offset, op, count uint64, errno int64) error {
+	derr := dataWaitErr{
+		Ino:     ino,
+		Version: version,
+		Offset:  offset,
+		Count:   count,
+		Op:      op,
+		Err:     errno,
+	}
+
+	_, err := scoutfsctl(dirfd, IOCDATAWAITERR, unsafe.Pointer(&derr))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // XattrQuery to keep track of in-process xattr query
 type XattrQuery struct {
 	next  uint64
