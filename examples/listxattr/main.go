@@ -35,7 +35,9 @@ func main() {
 		log.Fatalf("open %v: %v", os.Args[1], err)
 	}
 
-	lxr := scoutfs.NewListXattrHidden(f)
+	b := make([]byte, 256*1024)
+
+	lxr := scoutfs.NewListXattrHidden(f, b)
 
 	for {
 		attrs, err := lxr.Next()
