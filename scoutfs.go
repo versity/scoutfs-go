@@ -116,7 +116,7 @@ func (q *Query) Next() ([]InodesEntry, error) {
 	}
 
 	rbuf := bytes.NewReader(q.buf)
-	var inodes []InodesEntry
+	inodes := make([]InodesEntry, n)
 
 	var e InodesEntry
 	for i := 0; i < n; i++ {
@@ -125,7 +125,7 @@ func (q *Query) Next() ([]InodesEntry, error) {
 			return nil, err
 		}
 
-		inodes = append(inodes, e)
+		inodes[i] = e
 	}
 
 	q.first = e
@@ -375,7 +375,7 @@ func (w *Waiters) Next() ([]DataWaitingEntry, error) {
 	}
 
 	rbuf := bytes.NewReader(w.buf)
-	var inodes []DataWaitingEntry
+	inodes := make([]DataWaitingEntry, n)
 
 	var e DataWaitingEntry
 	for i := 0; i < n; i++ {
@@ -384,7 +384,7 @@ func (w *Waiters) Next() ([]DataWaitingEntry, error) {
 			return nil, err
 		}
 
-		inodes = append(inodes, e)
+		inodes[i] = e
 	}
 
 	w.ino = inodes[n-1].Ino
@@ -423,10 +423,11 @@ func SendDataWaitErr(dirfd *os.File, ino, version, offset, op, count uint64, err
 // XattrQuery to keep track of in-process xattr query
 type XattrQuery struct {
 	next  uint64
-	batch uint32
+	batch uint64
 	key   string
 	fsfd  *os.File
 	buf   []byte
+	done  bool
 }
 
 // NewXattrQuery creates a new scoutfs Xattr Query
@@ -436,8 +437,10 @@ type XattrQuery struct {
 // (usually just the base mount point directory)
 func NewXattrQuery(f *os.File, key string, opts ...XOption) *XattrQuery {
 	q := &XattrQuery{
-		//default batch size is 128
-		batch: 128,
+		// default batch size is 131072 for a nice round 1MB allocation.
+		// making this too small risks multiple calls into Next() wich
+		// has significant overhead per call.
+		batch: (128 * 1024),
 		key:   key,
 		fsfd:  f,
 	}
@@ -455,7 +458,7 @@ func NewXattrQuery(f *os.File, key string, opts ...XOption) *XattrQuery {
 type XOption func(*XattrQuery)
 
 // WithXBatchSize sets the max number of inodes to be returned at a time
-func WithXBatchSize(size uint32) XOption {
+func WithXBatchSize(size uint64) XOption {
 	return func(q *XattrQuery) {
 		q.batch = size
 	}
@@ -471,17 +474,25 @@ func WithXStartIno(ino uint64) XOption {
 // Next gets the next batch of inodes
 func (q *XattrQuery) Next() ([]uint64, error) {
 	name := []byte(q.key)
-	query := findXattrs{
+	query := searchXattrs{
 		Next_ino:   q.next,
 		Name_ptr:   uint64(uintptr(unsafe.Pointer(&name[0]))),
 		Inodes_ptr: uint64(uintptr(unsafe.Pointer(&q.buf[0]))),
 		Name_bytes: uint16(len(name)),
-		Nr_inodes:  uint16(q.batch),
+		Nr_inodes:  q.batch,
 	}
 
-	n, err := scoutfsctl(q.fsfd, IOCFINDXATTRS, unsafe.Pointer(&query))
+	if q.done {
+		return nil, nil
+	}
+
+	n, err := scoutfsctl(q.fsfd, IOCSEARCHXATTRS, unsafe.Pointer(&query))
 	if err != nil {
 		return nil, err
+	}
+
+	if query.Output_flags&SEARCHXATTRSOFLAGEND != 0 {
+		q.done = true
 	}
 
 	if n == 0 {
@@ -489,7 +500,7 @@ func (q *XattrQuery) Next() ([]uint64, error) {
 	}
 
 	rbuf := bytes.NewReader(q.buf)
-	var inodes []uint64
+	inodes := make([]uint64, n)
 
 	var e uint64
 	for i := 0; i < n; i++ {
@@ -498,7 +509,7 @@ func (q *XattrQuery) Next() ([]uint64, error) {
 			return nil, err
 		}
 
-		inodes = append(inodes, e)
+		inodes[i] = e
 	}
 
 	q.next = e
@@ -559,31 +570,33 @@ func bufToStrings(b []byte) []string {
 
 // FSID contains the statfs more info for mounted scoutfs filesystem
 type FSID struct {
-	FSID     uint64
-	RandomID uint64
-	ShortID  string
+	FSID         uint64
+	RandomID     uint64
+	ShortID      string
+	CommittedSeq uint64
 }
 
 // GetIDs gets the statfs more filesystem and random id from file handle within
 // scoutfs filesystem
 func GetIDs(f *os.File) (FSID, error) {
-	stfs := statfsMore{Bytes: sizeofstatfsMore}
+	stfs := statfsMore{Valid_bytes: sizeofstatfsMore}
 
 	_, err := scoutfsctl(f, IOCSTATFSMORE, unsafe.Pointer(&stfs))
 	if err != nil {
 		return FSID{}, err
 	}
-	if stfs.Bytes != sizeofstatfsMore {
-		return FSID{}, fmt.Errorf("unexpected return size: %v", stfs.Bytes)
+	if stfs.Valid_bytes != sizeofstatfsMore {
+		return FSID{}, fmt.Errorf("unexpected return size: %v", stfs.Valid_bytes)
 	}
 
 	short := fmt.Sprintf("f.%v.r.%v",
 		fmt.Sprintf("%016x", stfs.Fsid)[:][:6], fmt.Sprintf("%016x", stfs.Rid)[:][:6])
 
 	return FSID{
-		FSID:     stfs.Fsid,
-		RandomID: stfs.Rid,
-		ShortID:  short,
+		FSID:         stfs.Fsid,
+		RandomID:     stfs.Rid,
+		ShortID:      short,
+		CommittedSeq: stfs.Committed_seq,
 	}, nil
 }
 

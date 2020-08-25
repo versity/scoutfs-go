@@ -11,8 +11,8 @@ const IOCSTATMORE = 0x80307305
 const IOCDATAWAITING = 0x80287306
 const IOCSETATTRMORE = 0x40287307
 const IOCLISTXATTRHIDDEN = 0x80187308
-const IOCFINDXATTRS = 0x80207309
-const IOCSTATFSMORE = 0x8018730a
+const IOCSEARCHXATTRS = 0x80387309
+const IOCSTATFSMORE = 0x8020730a
 const IOCDATAWAITERR = 0x8030730b
 
 const QUERYINODESMETASEQ = 0x0
@@ -21,6 +21,8 @@ const QUERYINODESDATASEQ = 0x1
 const DATAWAITOPREAD = 0x1
 const DATAWAITOPWRITE = 0x2
 const DATAWAITOPCHANGESIZE = 0x4
+
+const SEARCHXATTRSOFLAGEND = 0x1
 
 type InodesEntry struct {
 	Major	uint64
@@ -100,18 +102,21 @@ type listXattrHidden struct {
 	Buf_bytes	uint32
 	Hash_pos	uint32
 }
-type findXattrs struct {
+type searchXattrs struct {
 	Next_ino	uint64
+	Last_ino	uint64
 	Name_ptr	uint64
 	Inodes_ptr	uint64
+	Output_flags	uint64
+	Nr_inodes	uint64
 	Name_bytes	uint16
-	Nr_inodes	uint16
-	X_pad		[4]uint8
+	X_pad		[6]uint8
 }
 type statfsMore struct {
-	Bytes	uint64
-	Fsid	uint64
-	Rid	uint64
+	Valid_bytes	uint64
+	Fsid		uint64
+	Rid		uint64
+	Committed_seq	uint64
 }
 
-const sizeofstatfsMore = 0x18
+const sizeofstatfsMore = 0x20

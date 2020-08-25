@@ -48,7 +48,7 @@ package scoutfs
 // typedef struct scoutfs_ioctl_data_wait_err scoutfs_ioctl_data_wait_err_t;
 // typedef struct scoutfs_ioctl_setattr_more scoutfs_ioctl_setattr_more_t;
 // typedef struct scoutfs_ioctl_listxattr_hidden scoutfs_ioctl_listxattr_hidden_t;
-// typedef struct scoutfs_ioctl_find_xattrs scoutfs_ioctl_find_xattrs_t;
+// typedef struct scoutfs_ioctl_search_xattrs scoutfs_ioctl_search_xattrs_t;
 // typedef struct scoutfs_ioctl_statfs_more scoutfs_ioctl_statfs_more_t;
 import "C"
 
@@ -60,7 +60,7 @@ const IOCSTATMORE = C.SCOUTFS_IOC_STAT_MORE
 const IOCDATAWAITING = C.SCOUTFS_IOC_DATA_WAITING
 const IOCSETATTRMORE = C.SCOUTFS_IOC_SETATTR_MORE
 const IOCLISTXATTRHIDDEN = C.SCOUTFS_IOC_LISTXATTR_HIDDEN
-const IOCFINDXATTRS = C.SCOUTFS_IOC_FIND_XATTRS
+const IOCSEARCHXATTRS = C.SCOUTFS_IOC_SEARCH_XATTRS
 const IOCSTATFSMORE = C.SCOUTFS_IOC_STATFS_MORE
 const IOCDATAWAITERR = C.SCOUTFS_IOC_DATA_WAIT_ERR
 
@@ -70,6 +70,8 @@ const QUERYINODESDATASEQ = C.SCOUTFS_IOC_WALK_INODES_DATA_SEQ
 const DATAWAITOPREAD = C.SCOUTFS_IOC_DWO_READ
 const DATAWAITOPWRITE = C.SCOUTFS_IOC_DWO_WRITE
 const DATAWAITOPCHANGESIZE = C.SCOUTFS_IOC_DWO_CHANGE_SIZE
+
+const SEARCHXATTRSOFLAGEND = C.SCOUTFS_SEARCH_XATTRS_OFLAG_END
 
 type InodesEntry C.scoutfs_ioctl_walk_inodes_entry_t
 type queryInodes C.scoutfs_ioctl_walk_inodes_t
@@ -82,7 +84,7 @@ type dataWaiting C.scoutfs_ioctl_data_waiting_t
 type dataWaitErr C.scoutfs_ioctl_data_wait_err_t
 type setattrMore C.scoutfs_ioctl_setattr_more_t
 type listXattrHidden C.scoutfs_ioctl_listxattr_hidden_t
-type findXattrs C.scoutfs_ioctl_find_xattrs_t
+type searchXattrs C.scoutfs_ioctl_search_xattrs_t
 type statfsMore C.scoutfs_ioctl_statfs_more_t
 
 const sizeofstatfsMore = C.sizeof_scoutfs_ioctl_statfs_more_t
