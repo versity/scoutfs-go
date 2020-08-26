@@ -476,6 +476,7 @@ func (q *XattrQuery) Next() ([]uint64, error) {
 	name := []byte(q.key)
 	query := searchXattrs{
 		Next_ino:   q.next,
+		Last_ino:   max64,
 		Name_ptr:   uint64(uintptr(unsafe.Pointer(&name[0]))),
 		Inodes_ptr: uint64(uintptr(unsafe.Pointer(&q.buf[0]))),
 		Name_bytes: uint16(len(name)),
