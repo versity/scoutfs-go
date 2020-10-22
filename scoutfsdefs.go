@@ -12,7 +12,7 @@ const IOCDATAWAITING = 0x80287306
 const IOCSETATTRMORE = 0x40287307
 const IOCLISTXATTRHIDDEN = 0x80187308
 const IOCSEARCHXATTRS = 0x80387309
-const IOCSTATFSMORE = 0x8020730a
+const IOCSTATFSMORE = 0x8030730a
 const IOCDATAWAITERR = 0x8030730b
 
 const QUERYINODESMETASEQ = 0x0
@@ -113,10 +113,12 @@ type searchXattrs struct {
 	X_pad		[6]uint8
 }
 type statfsMore struct {
-	Valid_bytes	uint64
-	Fsid		uint64
-	Rid		uint64
-	Committed_seq	uint64
+	Valid_bytes		uint64
+	Fsid			uint64
+	Rid			uint64
+	Committed_seq		uint64
+	Total_meta_blocks	uint64
+	Total_data_blocks	uint64
 }
 
-const sizeofstatfsMore = 0x20
+const sizeofstatfsMore = 0x30
