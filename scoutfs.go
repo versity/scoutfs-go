@@ -584,7 +584,7 @@ func GetIDs(f *os.File) (FSID, error) {
 
 	_, err := scoutfsctl(f, IOCSTATFSMORE, unsafe.Pointer(&stfs))
 	if err != nil {
-		return FSID{}, err
+		return FSID{}, fmt.Errorf("statfs more: %v", err)
 	}
 	if stfs.Valid_bytes != sizeofstatfsMore {
 		return FSID{}, fmt.Errorf("unexpected return size: %v", stfs.Valid_bytes)
@@ -649,4 +649,70 @@ func GetServerAddr(path string) (string, error) {
 	}
 
 	return fields[0], nil
+}
+
+// DiskUsage holds usage information reported by the filesystem
+type DiskUsage struct {
+	TotalMetaBlocks uint64
+	FreeMetaBlocks  uint64
+	TotalDataBlocks uint64
+	FreeDataBlcoks  uint64
+}
+
+var dfBatchCount uint64 = 4096
+var metaFlag uint8 = 0x1
+
+// GetDF returns usage data for the filesystem
+func GetDF(f *os.File) (DiskUsage, error) {
+	stfs := statfsMore{Valid_bytes: sizeofstatfsMore}
+
+	_, err := scoutfsctl(f, IOCSTATFSMORE, unsafe.Pointer(&stfs))
+	if err != nil {
+		return DiskUsage{}, fmt.Errorf("statfs more: %v", err)
+	}
+	if stfs.Valid_bytes != sizeofstatfsMore {
+		return DiskUsage{}, fmt.Errorf("statfs more unexpected return size: %v", stfs.Valid_bytes)
+	}
+
+	nr := dfBatchCount
+	buf := make([]byte, int(unsafe.Sizeof(allocDetailEntry{}))*int(nr))
+	var ret int
+	for {
+		ad := allocDetail{
+			Nr:  nr,
+			Ptr: uint64(uintptr(unsafe.Pointer(&buf[0]))),
+		}
+		ret, err = scoutfsctl(f, IOCALLOCDETAIL, unsafe.Pointer(&ad))
+		if err == syscall.EOVERFLOW {
+			nr = nr * 2
+			buf = make([]byte, int(unsafe.Sizeof(allocDetailEntry{}))*int(nr))
+			continue
+		}
+		if err != nil {
+			return DiskUsage{}, fmt.Errorf("alloc detail: %v", err)
+		}
+		break
+	}
+
+	rbuf := bytes.NewReader(buf)
+	var ade allocDetailEntry
+	var metaFree, dataFree uint64
+	for i := 0; i < ret; i++ {
+		err := binary.Read(rbuf, binary.LittleEndian, &ade)
+		if err != nil {
+			return DiskUsage{}, fmt.Errorf("parse alloc detail results: %v", err)
+		}
+		if ade.Flags&metaFlag != 0 {
+			metaFree += ade.Blocks
+		} else {
+			dataFree += ade.Blocks
+		}
+	}
+
+	return DiskUsage{
+		TotalMetaBlocks: stfs.Total_meta_blocks,
+		FreeMetaBlocks:  metaFree,
+		TotalDataBlocks: stfs.Total_data_blocks,
+		FreeDataBlcoks:  dataFree,
+	}, nil
 }

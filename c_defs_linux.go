@@ -50,6 +50,18 @@ package scoutfs
 // typedef struct scoutfs_ioctl_listxattr_hidden scoutfs_ioctl_listxattr_hidden_t;
 // typedef struct scoutfs_ioctl_search_xattrs scoutfs_ioctl_search_xattrs_t;
 // typedef struct scoutfs_ioctl_statfs_more scoutfs_ioctl_statfs_more_t;
+// typedef struct scoutfs_ioctl_alloc_detail scoutfs_ioctl_alloc_detail_t;
+//
+// // Go doesnt handle bitfields in structs, so we need to override the scoutfs
+// // struct definition here
+// struct scoutfs_ioctl_alloc_detail_entry_mod {
+// 	__u64 id;
+// 	__u64 blocks;
+// 	__u8 type;
+// 	__u8 flags;
+// };
+//
+// typedef struct scoutfs_ioctl_alloc_detail_entry_mod scoutfs_ioctl_alloc_detail_entry_t;
 import "C"
 
 const IOCQUERYINODES = C.SCOUTFS_IOC_WALK_INODES
@@ -63,6 +75,7 @@ const IOCLISTXATTRHIDDEN = C.SCOUTFS_IOC_LISTXATTR_HIDDEN
 const IOCSEARCHXATTRS = C.SCOUTFS_IOC_SEARCH_XATTRS
 const IOCSTATFSMORE = C.SCOUTFS_IOC_STATFS_MORE
 const IOCDATAWAITERR = C.SCOUTFS_IOC_DATA_WAIT_ERR
+const IOCALLOCDETAIL = C.SCOUTFS_IOC_ALLOC_DETAIL
 
 const QUERYINODESMETASEQ = C.SCOUTFS_IOC_WALK_INODES_META_SEQ
 const QUERYINODESDATASEQ = C.SCOUTFS_IOC_WALK_INODES_DATA_SEQ
@@ -86,5 +99,7 @@ type setattrMore C.scoutfs_ioctl_setattr_more_t
 type listXattrHidden C.scoutfs_ioctl_listxattr_hidden_t
 type searchXattrs C.scoutfs_ioctl_search_xattrs_t
 type statfsMore C.scoutfs_ioctl_statfs_more_t
+type allocDetail C.scoutfs_ioctl_alloc_detail_t
+type allocDetailEntry C.scoutfs_ioctl_alloc_detail_entry_t
 
 const sizeofstatfsMore = C.sizeof_scoutfs_ioctl_statfs_more_t

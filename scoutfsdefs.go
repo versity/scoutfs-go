@@ -14,6 +14,7 @@ const IOCLISTXATTRHIDDEN = 0x80187308
 const IOCSEARCHXATTRS = 0x80387309
 const IOCSTATFSMORE = 0x8030730a
 const IOCDATAWAITERR = 0x8030730b
+const IOCALLOCDETAIL = 0x8010730c
 
 const QUERYINODESMETASEQ = 0x0
 const QUERYINODESDATASEQ = 0x1
@@ -119,6 +120,17 @@ type statfsMore struct {
 	Committed_seq		uint64
 	Total_meta_blocks	uint64
 	Total_data_blocks	uint64
+}
+type allocDetail struct {
+	Ptr	uint64
+	Nr	uint64
+}
+type allocDetailEntry struct {
+	Id		uint64
+	Blocks		uint64
+	Type		uint8
+	Flags		uint8
+	Pad_cgo_0	[6]byte
 }
 
 const sizeofstatfsMore = 0x30

@@ -34,4 +34,11 @@ func main() {
 	fmt.Printf("fsid %016x\n", id.FSID)
 	fmt.Printf("rid  %016x\n", id.RandomID)
 	fmt.Printf("%v\n", id.ShortID)
+
+	df, err := scoutfs.GetDF(f)
+	if err != nil {
+		log.Fatalf("error GetDF: %v", err)
+	}
+
+	fmt.Printf("%+v\n", df)
 }
