@@ -656,7 +656,7 @@ type DiskUsage struct {
 	TotalMetaBlocks uint64
 	FreeMetaBlocks  uint64
 	TotalDataBlocks uint64
-	FreeDataBlcoks  uint64
+	FreeDataBlocks  uint64
 }
 
 var dfBatchCount uint64 = 4096
@@ -713,6 +713,6 @@ func GetDF(f *os.File) (DiskUsage, error) {
 		TotalMetaBlocks: stfs.Total_meta_blocks,
 		FreeMetaBlocks:  metaFree,
 		TotalDataBlocks: stfs.Total_data_blocks,
-		FreeDataBlcoks:  dataFree,
+		FreeDataBlocks:  dataFree,
 	}, nil
 }
