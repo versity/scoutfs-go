@@ -15,6 +15,7 @@ const IOCSEARCHXATTRS = 0x80387309
 const IOCSTATFSMORE = 0x8030730a
 const IOCDATAWAITERR = 0x8030730b
 const IOCALLOCDETAIL = 0x8010730c
+const IOCMOVEBLOCKS = 0x8020730d
 
 const QUERYINODESMETASEQ = 0x0
 const QUERYINODESDATASEQ = 0x1
@@ -131,6 +132,12 @@ type allocDetailEntry struct {
 	Type		uint8
 	Flags		uint8
 	Pad_cgo_0	[6]byte
+}
+type moveBlocks struct {
+	From_fd		uint64
+	From_off	uint64
+	Len		uint64
+	To_off		uint64
 }
 
 const sizeofstatfsMore = 0x30

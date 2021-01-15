@@ -62,6 +62,7 @@ package scoutfs
 // };
 //
 // typedef struct scoutfs_ioctl_alloc_detail_entry_mod scoutfs_ioctl_alloc_detail_entry_t;
+// typedef struct scoutfs_ioctl_move_blocks scoutfs_ioctl_move_blocks_t;
 import "C"
 
 const IOCQUERYINODES = C.SCOUTFS_IOC_WALK_INODES
@@ -76,6 +77,7 @@ const IOCSEARCHXATTRS = C.SCOUTFS_IOC_SEARCH_XATTRS
 const IOCSTATFSMORE = C.SCOUTFS_IOC_STATFS_MORE
 const IOCDATAWAITERR = C.SCOUTFS_IOC_DATA_WAIT_ERR
 const IOCALLOCDETAIL = C.SCOUTFS_IOC_ALLOC_DETAIL
+const IOCMOVEBLOCKS = C.SCOUTFS_IOC_MOVE_BLOCKS
 
 const QUERYINODESMETASEQ = C.SCOUTFS_IOC_WALK_INODES_META_SEQ
 const QUERYINODESDATASEQ = C.SCOUTFS_IOC_WALK_INODES_DATA_SEQ
@@ -101,5 +103,6 @@ type searchXattrs C.scoutfs_ioctl_search_xattrs_t
 type statfsMore C.scoutfs_ioctl_statfs_more_t
 type allocDetail C.scoutfs_ioctl_alloc_detail_t
 type allocDetailEntry C.scoutfs_ioctl_alloc_detail_entry_t
+type moveBlocks C.scoutfs_ioctl_move_blocks_t
 
 const sizeofstatfsMore = C.sizeof_scoutfs_ioctl_statfs_more_t
