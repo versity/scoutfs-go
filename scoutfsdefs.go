@@ -49,15 +49,15 @@ type inoPath struct {
 	X_pad		[6]uint8
 }
 type iocRelease struct {
-	Block	uint64
-	Count	uint64
+	Offset	uint64
+	Length	uint64
 	Version	uint64
 }
 type iocStage struct {
 	Data_version	uint64
 	Buf_ptr		uint64
 	Offset		uint64
-	Count		int32
+	Length		int32
 	X_pad		uint32
 }
 type Stat struct {

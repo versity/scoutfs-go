@@ -288,7 +288,7 @@ func ReleaseFile(path string, version uint64) error {
 // FReleaseFile marks file offline and frees associated extents
 func FReleaseFile(f *os.File, version uint64) error {
 	r := iocRelease{
-		Count:   math.MaxUint64,
+		Length:  math.MaxUint64,
 		Version: version,
 	}
 
@@ -313,7 +313,7 @@ func FStageFile(f *os.File, version, offset uint64, b []byte) (int, error) {
 		Data_version: version,
 		Buf_ptr:      uint64(uintptr(unsafe.Pointer(&b[0]))),
 		Offset:       offset,
-		Count:        int32(len(b)),
+		Length:       int32(len(b)),
 	}
 
 	return scoutfsctl(f, IOCSTAGE, unsafe.Pointer(&r))
