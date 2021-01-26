@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,6 +28,7 @@ const (
 	leaderfile      = "quorum/is_leader"
 	serveraddr      = "mount_options/server_addr"
 	listattrBufsize = 256 * 1024
+	scoutfsBS       = 4096
 )
 
 // Query to keep track of in-process query
@@ -287,13 +287,22 @@ func ReleaseFile(path string, version uint64) error {
 
 // FReleaseFile marks file offline and frees associated extents
 func FReleaseFile(f *os.File, version uint64) error {
+	fi, err := f.Stat()
+	if err != nil {
+		return err
+	}
+
 	r := iocRelease{
-		Length:  math.MaxUint64,
+		Length:  roundUp(uint64(fi.Size()), scoutfsBS),
 		Version: version,
 	}
 
-	_, err := scoutfsctl(f, IOCRELEASE, unsafe.Pointer(&r))
+	_, err = scoutfsctl(f, IOCRELEASE, unsafe.Pointer(&r))
 	return err
+}
+
+func roundUp(size, bs uint64) uint64 {
+	return ((size / bs) * bs) + bs
 }
 
 // StageFile rehydrates offline file
