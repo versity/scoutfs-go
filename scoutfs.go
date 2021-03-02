@@ -7,13 +7,14 @@
 package scoutfs
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -25,10 +26,10 @@ const (
 	max32           = 0xffffffff
 	pathmax         = 4096
 	sysscoutfs      = "/sys/fs/scoutfs/"
-	leaderfile      = "quorum/is_leader"
-	serveraddr      = "mount_options/server_addr"
+	statusfile      = "quorum/status"
 	listattrBufsize = 256 * 1024
 	scoutfsBS       = 4096
+	//leaderfile      = "quorum/is_leader"
 )
 
 // Query to keep track of in-process query
@@ -611,54 +612,73 @@ func GetIDs(f *os.File) (FSID, error) {
 	}, nil
 }
 
-// IsLeader returns true if the path is the current scoutfs leader mount
-func IsLeader(path string) (bool, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return false, fmt.Errorf("open: %v", err)
-	}
-	defer f.Close()
-
-	id, err := GetIDs(f)
-	if err != nil {
-		return false, fmt.Errorf("error GetIDs: %v", err)
-	}
-
-	sfspath := filepath.Join(sysscoutfs, id.ShortID, leaderfile)
-	b, err := ioutil.ReadFile(sfspath)
-	if err != nil {
-		return false, fmt.Errorf("read %q: %v", sfspath, err)
-	}
-
-	return strings.TrimSuffix(string(b), "\n") == "1", nil
+// QuorumInfo holds info for current mount quorum
+type QuorumInfo struct {
+	Slot int64
+	Term int64
+	Role string
 }
 
-// GetServerAddr returns the server IP address string.  This is only valid
-// if run on a quorum member mount.
-func GetServerAddr(path string) (string, error) {
+// IsLeader returns true if quorum status is a leader role
+func (q QuorumInfo) IsLeader() bool {
+	return q.Role == "(leader)"
+}
+
+// GetQuorumInfo returns quorum info for curren mount
+func GetQuorumInfo(path string) (QuorumInfo, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return "", fmt.Errorf("open: %v", err)
+		return QuorumInfo{}, fmt.Errorf("open: %v", err)
 	}
 	defer f.Close()
 
 	id, err := GetIDs(f)
 	if err != nil {
-		return "", fmt.Errorf("error GetIDs: %v", err)
+		return QuorumInfo{}, fmt.Errorf("error GetIDs: %v", err)
 	}
 
-	sfspath := filepath.Join(sysscoutfs, id.ShortID, serveraddr)
-	b, err := ioutil.ReadFile(sfspath)
+	sfspath := filepath.Join(sysscoutfs, id.ShortID, statusfile)
+	sfs, err := os.Open(sfspath)
 	if err != nil {
-		return "", fmt.Errorf("read %q: %v", sfspath, err)
+		return QuorumInfo{}, fmt.Errorf("open %q: %v", sfspath, err)
+	}
+	defer sfs.Close()
+
+	qi := QuorumInfo{}
+	scanner := bufio.NewScanner(sfs)
+	for scanner.Scan() {
+		fields := strings.Fields(scanner.Text())
+		if len(fields) < 2 {
+			return QuorumInfo{}, fmt.Errorf("parse line (%q): %q",
+				sfspath, scanner.Text())
+		}
+		switch fields[0] {
+		case "quorum_slot_nr":
+			qi.Slot, err = strconv.ParseInt(fields[1], 10, 64)
+			if err != nil {
+				return QuorumInfo{}, fmt.Errorf("parse quorum_slot_nr %q: %v",
+					fields[1], err)
+			}
+		case "term":
+			qi.Term, err = strconv.ParseInt(fields[1], 10, 64)
+			if err != nil {
+				return QuorumInfo{}, fmt.Errorf("term %q: %v",
+					fields[1], err)
+			}
+		case "role":
+			if len(fields) < 3 {
+				return QuorumInfo{}, fmt.Errorf("parse line (%q): %q",
+					sfspath, scanner.Text())
+			}
+			qi.Role = fields[2]
+		}
 	}
 
-	fields := strings.Split(string(b), ":")
-	if len(fields) != 2 {
-		return "", fmt.Errorf("unknown addr")
+	if err := scanner.Err(); err != nil {
+		return QuorumInfo{}, fmt.Errorf("parse %q: %v", sfspath, err)
 	}
 
-	return fields[0], nil
+	return qi, nil
 }
 
 // DiskUsage holds usage information reported by the filesystem
