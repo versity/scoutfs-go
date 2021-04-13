@@ -88,6 +88,8 @@ const DATAWAITOPCHANGESIZE = C.SCOUTFS_IOC_DWO_CHANGE_SIZE
 
 const SEARCHXATTRSOFLAGEND = C.SCOUTFS_SEARCH_XATTRS_OFLAG_END
 
+const MBSTAGEFLG = C.SCOUTFS_IOC_MB_STAGE
+
 type InodesEntry C.scoutfs_ioctl_walk_inodes_entry_t
 type queryInodes C.scoutfs_ioctl_walk_inodes_t
 type inoPath C.scoutfs_ioctl_ino_path_t
