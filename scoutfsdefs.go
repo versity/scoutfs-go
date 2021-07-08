@@ -12,7 +12,7 @@ const IOCDATAWAITING = 0x80287306
 const IOCSETATTRMORE = 0x40287307
 const IOCLISTXATTRHIDDEN = 0x80187308
 const IOCSEARCHXATTRS = 0x80387309
-const IOCSTATFSMORE = 0x8030730a
+const IOCSTATFSMORE = 0x8038730a
 const IOCDATAWAITERR = 0x8030730b
 const IOCALLOCDETAIL = 0x8010730c
 const IOCMOVEBLOCKS = 0x8030730d
@@ -123,6 +123,7 @@ type statfsMore struct {
 	Committed_seq		uint64
 	Total_meta_blocks	uint64
 	Total_data_blocks	uint64
+	Reserved_meta_blocks	uint64
 }
 type allocDetail struct {
 	Ptr	uint64
@@ -144,4 +145,4 @@ type moveBlocks struct {
 	Flags		uint64
 }
 
-const sizeofstatfsMore = 0x30
+const sizeofstatfsMore = 0x38
