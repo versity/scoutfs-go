@@ -826,3 +826,34 @@ func StageMove(from, to *os.File, offset, version uint64) error {
 
 	return nil
 }
+
+// StageMoveAt will move the extents (based on len) in "from" file handle at
+// given offset to the "to" file handle at given offset.
+// All offsets must be 4KB aligned boundary.
+// All destination offsets must be offline extents.
+// EINVAL: from_off, len, or to_off aren't a multiple of 4KB; the source
+//	   and destination files are the same inode; either the source or
+//	   destination is not a regular file; the destination file has
+//	   an existing overlapping extent.
+// EOVERFLOW: either from_off + len or to_off + len exceeded 64bits.
+// EBADF: from_fd isn't a valid open file descriptor.
+// EXDEV: the source and destination files are in different filesystems.
+// EISDIR: either the source or destination is a directory.
+// ENODATA: either the source or destination file have offline extents.
+func StageMoveAt(from, to *os.File, len, fromOffset, toOffset, version uint64) error {
+	mb := moveBlocks{
+		From_fd:      uint64(from.Fd()),
+		From_off:     fromOffset,
+		Len:          len,
+		To_off:       toOffset,
+		Data_version: version,
+		Flags:        MBSTAGEFLG,
+	}
+
+	_, err := scoutfsctl(to, IOCMOVEBLOCKS, unsafe.Pointer(&mb))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
