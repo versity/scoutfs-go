@@ -7,9 +7,9 @@ const IOCQUERYINODES = 0x80487301
 const IOCINOPATH = 0x80287302
 const IOCRELEASE = 0x40187303
 const IOCSTAGE = 0x40207304
-const IOCSTATMORE = 0x80307305
+const IOCSTATMORE = 0x80407305
 const IOCDATAWAITING = 0x80287306
-const IOCSETATTRMORE = 0x40287307
+const IOCSETATTRMORE = 0x40307307
 const IOCLISTXATTRHIDDEN = 0x80187308
 const IOCSEARCHXATTRS = 0x80387309
 const IOCSTATFSMORE = 0x8038730a
@@ -69,6 +69,9 @@ type Stat struct {
 	Data_version	uint64
 	Online_blocks	uint64
 	Offline_blocks	uint64
+	Crtime_sec	uint64
+	Crtime_nsec	uint32
+	X_pad		[4]uint8
 }
 type DataWaitingEntry struct {
 	Ino	uint64
@@ -98,7 +101,8 @@ type setattrMore struct {
 	Flags		uint64
 	Ctime_sec	uint64
 	Ctime_nsec	uint32
-	X_pad		[4]uint8
+	Crtime_nsec	uint32
+	Crtime_sec	uint64
 }
 type listXattrHidden struct {
 	Id_pos		uint64

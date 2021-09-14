@@ -166,28 +166,34 @@ func FStatMore(f *os.File) (Stat, error) {
 }
 
 // SetAttrMore sets special scoutfs attributes
-func SetAttrMore(path string, version, size, flags uint64, ctime time.Time) error {
+func SetAttrMore(path string, version, size, flags uint64, ctime time.Time, crtime time.Time) error {
 	f, err := os.OpenFile(path, os.O_RDWR, 0600)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	return FSetAttrMore(f, version, size, flags, ctime)
+	return FSetAttrMore(f, version, size, flags, ctime, crtime)
 }
 
 // FSetAttrMore sets special scoutfs attributes for file handle
-func FSetAttrMore(f *os.File, version, size, flags uint64, ctime time.Time) error {
-	var nsec int32
+func FSetAttrMore(f *os.File, version, size, flags uint64, ctime time.Time, crtime time.Time) error {
+	var cnsec int32
+	var crnsec int32
 	if ctime.UnixNano() == int64(int32(ctime.UnixNano())) {
-		nsec = int32(ctime.UnixNano())
+		cnsec = int32(ctime.UnixNano())
+	}
+	if crtime.UnixNano() == int64(int32(crtime.UnixNano())) {
+		crnsec = int32(crtime.UnixNano())
 	}
 	s := setattrMore{
 		Data_version: version,
 		I_size:       size,
 		Flags:        flags,
 		Ctime_sec:    uint64(ctime.Unix()),
-		Ctime_nsec:   uint32(nsec),
+		Ctime_nsec:   uint32(cnsec),
+		Crtime_sec:   uint64(crtime.Unix()),
+		Crtime_nsec:  uint32(crnsec),
 	}
 
 	_, err := scoutfsctl(f, IOCSETATTRMORE, unsafe.Pointer(&s))
