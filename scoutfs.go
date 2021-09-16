@@ -10,6 +10,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -862,4 +863,42 @@ func StageMoveAt(from, to *os.File, len, fromOffset, toOffset, version uint64) e
 	}
 
 	return nil
+}
+
+// XattrTotal has the total values matching id triple
+type XattrTotal struct {
+	// Total is sum of all xattr values matching ids
+	Total uint64
+	// Count is number of xattrs matching ids
+	Count uint64
+}
+
+var (
+	// ErrNoTotal is a special error case indicating that there were
+	// no xattrs matching the totl ids
+	ErrNoTotal = errors.New("no totl found")
+)
+
+// ReadXattrTotals returns the XattrTotal for the given id
+func ReadXattrTotals(f *os.File, id1, id2, id3 uint64) (XattrTotal, error) {
+	totls := make([]xattrTotal, 1)
+
+	query := readXattrTotals{
+		Pos_name:     [3]uint64{id1, id2, id3},
+		Totals_ptr:   uint64(uintptr(unsafe.Pointer(&totls[0]))),
+		Totals_bytes: sizeofxattrTotal,
+	}
+
+	n, err := scoutfsctl(f, IOCREADXATTRTOTALS, unsafe.Pointer(&query))
+	if err != nil {
+		return XattrTotal{}, err
+	}
+	if n == 0 {
+		return XattrTotal{}, ErrNoTotal
+	}
+
+	return XattrTotal{
+		Total: totls[0].Total,
+		Count: totls[0].Count,
+	}, nil
 }

@@ -16,6 +16,7 @@ const IOCSTATFSMORE = 0x8038730a
 const IOCDATAWAITERR = 0x8030730b
 const IOCALLOCDETAIL = 0x8010730c
 const IOCMOVEBLOCKS = 0x8030730d
+const IOCREADXATTRTOTALS = 0x8028730f
 
 const QUERYINODESMETASEQ = 0x0
 const QUERYINODESDATASEQ = 0x1
@@ -148,5 +149,16 @@ type moveBlocks struct {
 	Data_version	uint64
 	Flags		uint64
 }
+type readXattrTotals struct {
+	Pos_name	[3]uint64
+	Totals_ptr	uint64
+	Totals_bytes	uint64
+}
+type xattrTotal struct {
+	Name	[3]uint64
+	Total	uint64
+	Count	uint64
+}
 
 const sizeofstatfsMore = 0x38
+const sizeofxattrTotal = 0x28

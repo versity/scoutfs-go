@@ -1,4 +1,4 @@
-// +build ignore
+//go:build ignore
 
 // Copyright (c) 2018 Versity Software, Inc.
 //
@@ -51,6 +51,8 @@ package scoutfs
 // typedef struct scoutfs_ioctl_search_xattrs scoutfs_ioctl_search_xattrs_t;
 // typedef struct scoutfs_ioctl_statfs_more scoutfs_ioctl_statfs_more_t;
 // typedef struct scoutfs_ioctl_alloc_detail scoutfs_ioctl_alloc_detail_t;
+// typedef struct scoutfs_ioctl_read_xattr_totals scoutfs_ioctl_read_xattr_totals_t;
+// typedef struct scoutfs_ioctl_xattr_total scoutfs_ioctl_xattr_total_t;
 //
 // // Go doesnt handle bitfields in structs, so we need to override the scoutfs
 // // struct definition here
@@ -78,6 +80,7 @@ const IOCSTATFSMORE = C.SCOUTFS_IOC_STATFS_MORE
 const IOCDATAWAITERR = C.SCOUTFS_IOC_DATA_WAIT_ERR
 const IOCALLOCDETAIL = C.SCOUTFS_IOC_ALLOC_DETAIL
 const IOCMOVEBLOCKS = C.SCOUTFS_IOC_MOVE_BLOCKS
+const IOCREADXATTRTOTALS = C.SCOUTFS_IOC_READ_XATTR_TOTALS
 
 const QUERYINODESMETASEQ = C.SCOUTFS_IOC_WALK_INODES_META_SEQ
 const QUERYINODESDATASEQ = C.SCOUTFS_IOC_WALK_INODES_DATA_SEQ
@@ -106,5 +109,8 @@ type statfsMore C.scoutfs_ioctl_statfs_more_t
 type allocDetail C.scoutfs_ioctl_alloc_detail_t
 type allocDetailEntry C.scoutfs_ioctl_alloc_detail_entry_t
 type moveBlocks C.scoutfs_ioctl_move_blocks_t
+type readXattrTotals C.scoutfs_ioctl_read_xattr_totals_t
+type xattrTotal C.scoutfs_ioctl_xattr_total_t
 
 const sizeofstatfsMore = C.sizeof_scoutfs_ioctl_statfs_more_t
+const sizeofxattrTotal = C.sizeof_scoutfs_ioctl_xattr_total_t
