@@ -10,7 +10,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -873,12 +872,6 @@ type XattrTotal struct {
 	Count uint64
 }
 
-var (
-	// ErrNoTotal is a special error case indicating that there were
-	// no xattrs matching the totl ids
-	ErrNoTotal = errors.New("no totl found")
-)
-
 // ReadXattrTotals returns the XattrTotal for the given id
 func ReadXattrTotals(f *os.File, id1, id2, id3 uint64) (XattrTotal, error) {
 	totls := make([]xattrTotal, 1)
@@ -894,7 +887,7 @@ func ReadXattrTotals(f *os.File, id1, id2, id3 uint64) (XattrTotal, error) {
 		return XattrTotal{}, err
 	}
 	if n == 0 {
-		return XattrTotal{}, ErrNoTotal
+		return XattrTotal{}, nil
 	}
 
 	return XattrTotal{
