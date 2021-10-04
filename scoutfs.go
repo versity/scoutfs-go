@@ -12,6 +12,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -870,6 +871,8 @@ type XattrTotal struct {
 	Total uint64
 	// Count is number of xattrs matching ids
 	Count uint64
+	// ID is the id for this total
+	ID [3]uint64
 }
 
 // ReadXattrTotals returns the XattrTotal for the given id
@@ -894,4 +897,79 @@ func ReadXattrTotals(f *os.File, id1, id2, id3 uint64) (XattrTotal, error) {
 		Total: totls[0].Total,
 		Count: totls[0].Count,
 	}, nil
+}
+
+type TotalsGroup struct {
+	totls []xattrTotal
+	pos   [3]uint64
+	id1   uint64
+	id2   uint64
+	count int
+	f     *os.File
+	done  bool
+}
+
+// NewTotalsGroup creates a query to get the totals values for a defined
+// group of totls (group is defined to match first 2 identifiers).  Count
+// specifies max number returned for each Next() call.
+func NewTotalsGroup(f *os.File, id1, id2 uint64, count int) *TotalsGroup {
+	totls := make([]xattrTotal, count)
+
+	return &TotalsGroup{
+		totls: totls,
+		f:     f,
+		id1:   id1,
+		id2:   id2,
+		count: count,
+		pos:   [3]uint64{id1, id2, 0},
+	}
+}
+
+// Next returns next set of total values for the group
+func (t *TotalsGroup) Next() ([]XattrTotal, error) {
+	if t.done {
+		return nil, nil
+	}
+
+	query := readXattrTotals{
+		Pos_name:     t.pos,
+		Totals_ptr:   uint64(uintptr(unsafe.Pointer(&t.totls[0]))),
+		Totals_bytes: sizeofxattrTotal * uint64(t.count),
+	}
+
+	n, err := scoutfsctl(t.f, IOCREADXATTRTOTALS, unsafe.Pointer(&query))
+	if err != nil {
+		return nil, err
+	}
+	if n == 0 {
+		t.done = true
+		return nil, nil
+	}
+
+	t.pos = t.totls[n-1].Name
+	if t.pos[2] == math.MaxUint64 {
+		t.done = true
+	}
+	t.pos[2]++
+
+	ret := make([]XattrTotal, n)
+	for i := range ret {
+		if t.totls[i].Name[0] != t.id1 || t.totls[i].Name[1] != t.id2 {
+			t.done = true
+			// id sequence we want is done
+			return ret[:i], nil
+		}
+		ret[i].Count = t.totls[i].Count
+		ret[i].Total = t.totls[i].Total
+		ret[i].ID = t.totls[i].Name
+	}
+	return ret, nil
+}
+
+// Reset resets the totl query to the start of the group id again
+func (t *TotalsGroup) Reset() {
+	t.done = false
+	t.pos[0] = t.id1
+	t.pos[1] = t.id2
+	t.pos[2] = 0
 }
