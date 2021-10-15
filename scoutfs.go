@@ -889,7 +889,10 @@ func ReadXattrTotals(f *os.File, id1, id2, id3 uint64) (XattrTotal, error) {
 	if err != nil {
 		return XattrTotal{}, err
 	}
-	if n == 0 {
+	if n == 0 ||
+		totls[0].Name[0] != id1 ||
+		totls[0].Name[1] != id2 ||
+		totls[0].Name[2] != id3 {
 		return XattrTotal{}, nil
 	}
 
