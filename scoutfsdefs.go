@@ -3,20 +3,20 @@
 
 package scoutfs
 
-const IOCQUERYINODES = 0x80487301
-const IOCINOPATH = 0x80287302
-const IOCRELEASE = 0x40187303
-const IOCSTAGE = 0x40207304
-const IOCSTATMORE = 0x80407305
-const IOCDATAWAITING = 0x80287306
-const IOCSETATTRMORE = 0x40307307
-const IOCLISTXATTRHIDDEN = 0x80187308
-const IOCSEARCHXATTRS = 0x80387309
-const IOCSTATFSMORE = 0x8038730a
-const IOCDATAWAITERR = 0x8030730b
-const IOCALLOCDETAIL = 0x8010730c
-const IOCMOVEBLOCKS = 0x8030730d
-const IOCREADXATTRTOTALS = 0x8028730f
+const IOCQUERYINODES = 0x4048e801
+const IOCINOPATH = 0x4028e802
+const IOCRELEASE = 0x4018e803
+const IOCSTAGE = 0x4020e804
+const IOCSTATMORE = 0x8038e805
+const IOCDATAWAITING = 0x4028e806
+const IOCSETATTRMORE = 0x4030e807
+const IOCLISTXATTRHIDDEN = 0xc018e808
+const IOCSEARCHXATTRS = 0x4038e809
+const IOCSTATFSMORE = 0x8030e80a
+const IOCDATAWAITERR = 0x4030e80b
+const IOCALLOCDETAIL = 0x4010e80c
+const IOCMOVEBLOCKS = 0x4030e80d
+const IOCREADXATTRTOTALS = 0x4028e80f
 
 const QUERYINODESMETASEQ = 0x0
 const QUERYINODESDATASEQ = 0x1
@@ -64,7 +64,6 @@ type iocStage struct {
 	X_pad		uint32
 }
 type Stat struct {
-	Valid_bytes	uint64
 	Meta_seq	uint64
 	Data_seq	uint64
 	Data_version	uint64
@@ -122,7 +121,6 @@ type searchXattrs struct {
 	X_pad		[6]uint8
 }
 type statfsMore struct {
-	Valid_bytes		uint64
 	Fsid			uint64
 	Rid			uint64
 	Committed_seq		uint64
@@ -160,5 +158,5 @@ type xattrTotal struct {
 	Count	uint64
 }
 
-const sizeofstatfsMore = 0x38
+const sizeofstatfsMore = 0x30
 const sizeofxattrTotal = 0x28

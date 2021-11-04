@@ -156,7 +156,7 @@ func StatMore(path string) (Stat, error) {
 
 // FStatMore returns scoutfs specific metadata for file handle
 func FStatMore(f *os.File) (Stat, error) {
-	s := Stat{Valid_bytes: uint64(unsafe.Sizeof(Stat{}))}
+	s := Stat{}
 
 	_, err := scoutfsctl(f, IOCSTATMORE, unsafe.Pointer(&s))
 	if err != nil {
@@ -598,14 +598,11 @@ type FSID struct {
 // GetIDs gets the statfs more filesystem and random id from file handle within
 // scoutfs filesystem
 func GetIDs(f *os.File) (FSID, error) {
-	stfs := statfsMore{Valid_bytes: sizeofstatfsMore}
+	stfs := statfsMore{}
 
 	_, err := scoutfsctl(f, IOCSTATFSMORE, unsafe.Pointer(&stfs))
 	if err != nil {
 		return FSID{}, fmt.Errorf("statfs more: %v", err)
-	}
-	if stfs.Valid_bytes != sizeofstatfsMore {
-		return FSID{}, fmt.Errorf("unexpected return size: %v", stfs.Valid_bytes)
 	}
 
 	short := fmt.Sprintf("f.%v.r.%v",
@@ -701,14 +698,11 @@ var metaFlag uint8 = 0x1
 
 // GetDF returns usage data for the filesystem
 func GetDF(f *os.File) (DiskUsage, error) {
-	stfs := statfsMore{Valid_bytes: sizeofstatfsMore}
+	stfs := statfsMore{}
 
 	_, err := scoutfsctl(f, IOCSTATFSMORE, unsafe.Pointer(&stfs))
 	if err != nil {
 		return DiskUsage{}, fmt.Errorf("statfs more: %v", err)
-	}
-	if stfs.Valid_bytes != sizeofstatfsMore {
-		return DiskUsage{}, fmt.Errorf("statfs more unexpected return size: %v", stfs.Valid_bytes)
 	}
 
 	nr := dfBatchCount
