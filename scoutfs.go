@@ -313,6 +313,31 @@ func roundUp(size, bs uint64) uint64 {
 	return ((size / bs) * bs) + bs
 }
 
+// ReleaseBlocks marks blocks offline and frees associated extents
+// offset/length must be 4k aligned
+func ReleaseBlocks(path string, offset, length, version uint64) error {
+	f, err := os.OpenFile(path, os.O_WRONLY, 0)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	return FReleaseBlocks(f, offset, length, version)
+}
+
+// FReleaseBlocks marks blocks offline and frees associated extents
+// offset/length must be 4k aligned
+func FReleaseBlocks(f *os.File, offset, length, version uint64) error {
+	r := iocRelease{
+		Offset:  offset,
+		Length:  length,
+		Version: version,
+	}
+
+	_, err := scoutfsctl(f, IOCRELEASE, unsafe.Pointer(&r))
+	return err
+}
+
 // StageFile rehydrates offline file
 func StageFile(path string, version, offset uint64, b []byte) (int, error) {
 	f, err := os.OpenFile(path, os.O_WRONLY, 0)
