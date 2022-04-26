@@ -143,6 +143,11 @@ func (q *Query) Next() ([]InodesEntry, error) {
 	return inodes, nil
 }
 
+// SetLast updates the sequence stopping point
+func (q *Query) SetLast(l InodesEntry) {
+	q.last = l
+}
+
 // StatMore returns scoutfs specific metadata for path
 func StatMore(path string) (Stat, error) {
 	f, err := os.Open(path)
