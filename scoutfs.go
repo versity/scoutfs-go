@@ -152,6 +152,11 @@ func (i InodesEntry) Increment() InodesEntry {
 	return i
 }
 
+// String returns the string representation of InodesEntry
+func (i InodesEntry) String() string {
+	return fmt.Sprintf("{seq: %v, ino: %v}", i.Major, i.Ino)
+}
+
 // StatMore returns scoutfs specific metadata for path
 func StatMore(path string) (Stat, error) {
 	f, err := os.Open(path)
@@ -787,9 +792,11 @@ func GetDF(f *os.File) (DiskUsage, error) {
 // The end of "to" must be 4KB aligned boundary.
 // errors this can return:
 // EINVAL: from_off, len, or to_off aren't a multiple of 4KB; the source
-//	   and destination files are the same inode; either the source or
-//	   destination is not a regular file; the destination file has
-//	   an existing overlapping extent.
+//
+//	and destination files are the same inode; either the source or
+//	destination is not a regular file; the destination file has
+//	an existing overlapping extent.
+//
 // EOVERFLOW: either from_off + len or to_off + len exceeded 64bits.
 // EBADF: from_fd isn't a valid open file descriptor.
 // EXDEV: the source and destination files are in different filesystems.
@@ -828,9 +835,11 @@ func MoveData(from, to *os.File) error {
 // The size of from and offset of "to" must be 4KB aligned boundary.
 // errors this can return:
 // EINVAL: from_off, len, or to_off aren't a multiple of 4KB; the source
-//	   and destination files are the same inode; either the source or
-//	   destination is not a regular file; the destination file has
-//	   an existing overlapping extent.
+//
+//	and destination files are the same inode; either the source or
+//	destination is not a regular file; the destination file has
+//	an existing overlapping extent.
+//
 // EOVERFLOW: either from_off + len or to_off + len exceeded 64bits.
 // EBADF: from_fd isn't a valid open file descriptor.
 // EXDEV: the source and destination files are in different filesystems.
@@ -867,9 +876,11 @@ func StageMove(from, to *os.File, offset, version uint64) error {
 // All offsets must be 4KB aligned boundary.
 // All destination offsets must be offline extents.
 // EINVAL: from_off, len, or to_off aren't a multiple of 4KB; the source
-//	   and destination files are the same inode; either the source or
-//	   destination is not a regular file; the destination file has
-//	   an existing overlapping extent.
+//
+//	and destination files are the same inode; either the source or
+//	destination is not a regular file; the destination file has
+//	an existing overlapping extent.
+//
 // EOVERFLOW: either from_off + len or to_off + len exceeded 64bits.
 // EBADF: from_fd isn't a valid open file descriptor.
 // EXDEV: the source and destination files are in different filesystems.
