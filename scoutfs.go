@@ -131,21 +131,25 @@ func (q *Query) Next() ([]InodesEntry, error) {
 		inodes[i] = e
 	}
 
-	q.first = e
-	q.first.Ino++
-	if q.first.Ino == 0 {
-		q.first.Minor++
-		if q.first.Minor == 0 {
-			q.first.Major++
-		}
-	}
-
+	q.first = e.Increment()
 	return inodes, nil
 }
 
 // SetLast updates the sequence stopping point
 func (q *Query) SetLast(l InodesEntry) {
 	q.last = l
+}
+
+// Increment returns the next seq entry position
+func (i InodesEntry) Increment() InodesEntry {
+	i.Ino++
+	if i.Ino == 0 {
+		i.Minor++
+		if i.Minor == 0 {
+			i.Major++
+		}
+	}
+	return i
 }
 
 // StatMore returns scoutfs specific metadata for path
