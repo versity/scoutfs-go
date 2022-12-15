@@ -296,7 +296,7 @@ func OpenByID(dirfd *os.File, ino uint64, flags int, name string) (*os.File, err
 	return os.NewFile(fd, name), nil
 }
 
-// ReleaseFile marks file offline and frees associated extents
+// ReleaseFile sets file offline by freeing associated extents
 func ReleaseFile(path string, version uint64) error {
 	f, err := os.OpenFile(path, os.O_WRONLY, 0)
 	if err != nil {
@@ -307,7 +307,7 @@ func ReleaseFile(path string, version uint64) error {
 	return FReleaseFile(f, version)
 }
 
-// FReleaseFile marks file offline and frees associated extents
+// FReleaseFile set file offline by freeing associated extents
 func FReleaseFile(f *os.File, version uint64) error {
 	fi, err := f.Stat()
 	if err != nil {
@@ -315,7 +315,7 @@ func FReleaseFile(f *os.File, version uint64) error {
 	}
 
 	r := iocRelease{
-		Length:  roundUp(uint64(fi.Size()), scoutfsBS),
+		Length:  divRoundUp(uint64(fi.Size()), scoutfsBS),
 		Version: version,
 	}
 
@@ -323,8 +323,12 @@ func FReleaseFile(f *os.File, version uint64) error {
 	return err
 }
 
-func roundUp(size, bs uint64) uint64 {
-	return ((size / bs) * bs) + bs
+func divRoundUp(size, bs uint64) uint64 {
+	d := (size / bs) * bs
+	if d == size {
+		return d
+	}
+	return d + bs
 }
 
 // ReleaseBlocks marks blocks offline and frees associated extents
