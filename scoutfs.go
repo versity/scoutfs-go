@@ -195,11 +195,11 @@ func SetAttrMore(path string, version, size, flags uint64, ctime time.Time, crti
 func FSetAttrMore(f *os.File, version, size, flags uint64, ctime time.Time, crtime time.Time) error {
 	var cnsec int32
 	var crnsec int32
-	if ctime.UnixNano() == int64(int32(ctime.UnixNano())) {
-		cnsec = int32(ctime.UnixNano())
+	if ctime.Nanosecond() == int(int32(ctime.Nanosecond())) {
+		cnsec = int32(ctime.Nanosecond())
 	}
-	if crtime.UnixNano() == int64(int32(crtime.UnixNano())) {
-		crnsec = int32(crtime.UnixNano())
+	if crtime.Nanosecond() == int(int32(crtime.Nanosecond())) {
+		crnsec = int32(crtime.Nanosecond())
 	}
 	s := setattrMore{
 		Data_version: version,
