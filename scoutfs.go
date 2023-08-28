@@ -10,6 +10,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -23,13 +24,14 @@ import (
 )
 
 const (
-	max64           = 0xffffffffffffffff
-	max32           = 0xffffffff
-	pathmax         = 4096
-	sysscoutfs      = "/sys/fs/scoutfs/"
-	statusfile      = "quorum/status"
-	listattrBufsize = 256 * 1024
-	scoutfsBS       = 4096
+	max64            = 0xffffffffffffffff
+	max32            = 0xffffffff
+	pathmax          = 4096
+	sysscoutfs       = "/sys/fs/scoutfs/"
+	statusfile       = "quorum/status"
+	listattrBufsize  = 256 * 1024
+	getparentBufsize = 4096 * 1024
+	scoutfsBS        = 4096
 	//leaderfile      = "quorum/is_leader"
 )
 
@@ -1018,4 +1020,117 @@ func (t *TotalsGroup) Reset() {
 	t.pos[0] = t.id1
 	t.pos[1] = t.id2
 	t.pos[2] = 0
+}
+
+// Parent contains inode of parent and what the child inode is named within
+// this parent
+type Parent struct {
+	Ino  uint64 // Parent inode
+	Pos  uint64 // Entry directory position in parent
+	Type uint8  // Entry inode type matching DT_ enum values in readdir(3)
+	Ent  string // Entry name as known by parent
+}
+
+// GetParents returns all parents for the given inode
+// An open file within scoutfs is supplied for ioctls
+// (usually just the base mount point directory)
+// If passed in buffer is nil, call will allocate its own buffer.
+func GetParents(dirfd *os.File, ino uint64, b []byte) ([]Parent, error) {
+	if b == nil {
+		b = make([]byte, getparentBufsize)
+	}
+
+	gre := getReferringEntries{}
+
+	gre.Entries_bytes = uint64(len(b))
+	gre.Entries_ptr = uint64(uintptr(unsafe.Pointer(&b[0])))
+	gre.Ino = ino
+
+	var parents []Parent
+
+	for {
+		n, err := scoutfsctl(dirfd, IOCGETREFERRINGENTRIES, unsafe.Pointer(&gre))
+		if err != nil {
+			return nil, err
+		}
+		if n == 0 {
+			break
+		}
+
+		ents, isLast, err := parseDents(b)
+		if err != nil {
+			return nil, err
+		}
+
+		parents = append(parents, ents...)
+		if isLast {
+			break
+		}
+	}
+
+	return parents, nil
+}
+
+func parseDents(b []byte) ([]Parent, bool, error) {
+	r := bytes.NewReader(b)
+	var parents []Parent
+	var isLast bool
+	for {
+		var err error
+		var parent Parent
+		parent, isLast, err = parseDent(r)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, false, err
+		}
+		parents = append(parents, parent)
+		if isLast {
+			break
+		}
+		if r.Len() == 0 {
+			break
+		}
+	}
+	return parents, isLast, nil
+}
+
+type dirent struct {
+	Dir_ino     uint64
+	Dir_pos     uint64
+	Ino         uint64
+	Entry_bytes uint16
+	Flags       uint8
+	D_type      uint8
+	Name_len    uint8
+}
+
+func parseDent(r *bytes.Reader) (Parent, bool, error) {
+	var dent dirent
+	err := binary.Read(r, binary.LittleEndian, &dent)
+	if err != nil {
+		return Parent{}, false, err
+	}
+
+	b := new(strings.Builder)
+	_, err = io.CopyN(b, r, int64(dent.Name_len))
+	if err != nil {
+		return Parent{}, false, err
+	}
+
+	pad := int(dent.Entry_bytes) - int(unsafe.Sizeof(dent)) + int(dent.Name_len)
+	for i := 0; i < pad; i++ {
+		_, err = r.ReadByte()
+		if err != nil {
+			return Parent{}, false, err
+		}
+	}
+
+	return Parent{
+		Ino:  dent.Dir_ino,
+		Pos:  dent.Dir_pos,
+		Type: dent.D_type,
+		Ent:  b.String(),
+	}, dent.Flags&DIRENTFLAGLAST == DIRENTFLAGLAST, nil
 }

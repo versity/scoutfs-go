@@ -53,6 +53,8 @@ package scoutfs
 // typedef struct scoutfs_ioctl_alloc_detail scoutfs_ioctl_alloc_detail_t;
 // typedef struct scoutfs_ioctl_read_xattr_totals scoutfs_ioctl_read_xattr_totals_t;
 // typedef struct scoutfs_ioctl_xattr_total scoutfs_ioctl_xattr_total_t;
+// typedef struct scoutfs_ioctl_get_referring_entries scoutfs_ioctl_get_referring_entries_t;
+// typedef struct scoutfs_ioctl_dirent scoutfs_ioctl_dirent_t;
 //
 // // Go doesnt handle bitfields in structs, so we need to override the scoutfs
 // // struct definition here
@@ -81,6 +83,7 @@ const IOCDATAWAITERR = C.SCOUTFS_IOC_DATA_WAIT_ERR
 const IOCALLOCDETAIL = C.SCOUTFS_IOC_ALLOC_DETAIL
 const IOCMOVEBLOCKS = C.SCOUTFS_IOC_MOVE_BLOCKS
 const IOCREADXATTRTOTALS = C.SCOUTFS_IOC_READ_XATTR_TOTALS
+const IOCGETREFERRINGENTRIES = C.SCOUTFS_IOC_GET_REFERRING_ENTRIES
 
 const QUERYINODESMETASEQ = C.SCOUTFS_IOC_WALK_INODES_META_SEQ
 const QUERYINODESDATASEQ = C.SCOUTFS_IOC_WALK_INODES_DATA_SEQ
@@ -92,6 +95,8 @@ const DATAWAITOPCHANGESIZE = C.SCOUTFS_IOC_DWO_CHANGE_SIZE
 const SEARCHXATTRSOFLAGEND = C.SCOUTFS_SEARCH_XATTRS_OFLAG_END
 
 const MBSTAGEFLG = C.SCOUTFS_IOC_MB_STAGE
+
+const DIRENTFLAGLAST = C.SCOUTFS_IOCTL_DIRENT_FLAG_LAST
 
 type InodesEntry C.scoutfs_ioctl_walk_inodes_entry_t
 type queryInodes C.scoutfs_ioctl_walk_inodes_t
@@ -111,6 +116,8 @@ type allocDetailEntry C.scoutfs_ioctl_alloc_detail_entry_t
 type moveBlocks C.scoutfs_ioctl_move_blocks_t
 type readXattrTotals C.scoutfs_ioctl_read_xattr_totals_t
 type xattrTotal C.scoutfs_ioctl_xattr_total_t
+type getReferringEntries C.scoutfs_ioctl_get_referring_entries_t
+type scoutfsDirent C.scoutfs_ioctl_dirent_t
 
 const sizeofstatfsMore = C.sizeof_scoutfs_ioctl_statfs_more_t
 const sizeofxattrTotal = C.sizeof_scoutfs_ioctl_xattr_total_t
