@@ -1106,6 +1106,8 @@ type dirent struct {
 	Name_len    uint8
 }
 
+const direntSize = 29
+
 func parseDent(r *bytes.Reader) (Parent, bool, error) {
 	var dent dirent
 	err := binary.Read(r, binary.LittleEndian, &dent)
@@ -1119,7 +1121,7 @@ func parseDent(r *bytes.Reader) (Parent, bool, error) {
 		return Parent{}, false, err
 	}
 
-	pad := int(dent.Entry_bytes) - int(unsafe.Sizeof(dent)) + int(dent.Name_len)
+	pad := int(dent.Entry_bytes) - (direntSize + int(dent.Name_len))
 	for i := 0; i < pad; i++ {
 		_, err = r.ReadByte()
 		if err != nil {
