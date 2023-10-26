@@ -693,7 +693,7 @@ func GetQuorumInfo(path string) (QuorumInfo, error) {
 	}
 	defer sfs.Close()
 
-	qi := QuorumInfo{}
+	qi := QuorumInfo{Slot: -1}
 	scanner := bufio.NewScanner(sfs)
 	for scanner.Scan() {
 		fields := strings.Fields(scanner.Text())
