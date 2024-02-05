@@ -1136,3 +1136,454 @@ func parseDent(r *bytes.Reader) (Parent, bool, error) {
 		Ent:  b.String(),
 	}, dent.Flags&DIRENTFLAGLAST == DIRENTFLAGLAST, nil
 }
+
+const (
+	// format.h: SQ_NS_LITERAL
+	quotaLiteral = 0
+	// format.h: SQ_NS_PROJ
+	quotaProj = 1
+	// format.h: SQ_NS_UID
+	quotaUID = 2
+	// format.h: SQ_NS_GID
+	quotaGID = 3
+	// format.h: SQ_NF_SELECT
+	quotaSelect = 1
+	// format.h: SQ_RF_TOTL_COUNT
+	quotaFlagCount = 1
+)
+
+type QuotaType uint8
+
+func (q QuotaType) String() string {
+	switch q {
+	case quotaLiteral:
+		return "literal"
+	case quotaProj:
+		return "project"
+	case quotaUID:
+		return "uid"
+	case quotaGID:
+		return "gid"
+	default:
+		return "unknown"
+	}
+}
+
+const (
+	// format.h: SQ_OP_INODE
+	QuotaInode = 0
+	// format.h: SQ_OP_DATA
+	QuotaData = 1
+)
+
+type QuotaOp uint8
+
+func (q QuotaOp) String() string {
+	switch q {
+	case QuotaInode:
+		return "Inode  "
+	case QuotaData:
+		return "Size   "
+	default:
+		return "Unknown"
+	}
+}
+
+type Quotas struct {
+	rules []quotaRule
+	iter  [2]uint64
+	count int
+	f     *os.File
+	done  bool
+}
+
+// QuotaRule is attributes for a single quota rule
+type QuotaRule struct {
+	Op          QuotaOp
+	QuotaValue  [3]uint64
+	QuotaSource [3]uint8
+	QuotaFlags  [3]uint8
+	Limit       uint64
+	Prioirity   uint8
+	Flags       uint8
+}
+
+func (q QuotaRule) String() string {
+	switch q.QuotaSource[2] {
+	case quotaLiteral:
+		return fmt.Sprintf("P: %3v %v Literal Limit: %v",
+			q.Prioirity, q.Op, q.Limit)
+	case quotaUID:
+		if q.QuotaFlags[2] == quotaSelect {
+			return fmt.Sprintf("P: %3v %v UID [%5v] Limit: %v",
+				q.Prioirity, q.Op, q.QuotaValue[2], q.Limit)
+		}
+		return fmt.Sprintf("P: %3v %v UID general Limit: %v",
+			q.Prioirity, q.Op, q.Limit)
+	case quotaGID:
+		if q.QuotaFlags[2] == quotaSelect {
+			return fmt.Sprintf("P: %3v %v GID [%5v] Limit: %v",
+				q.Prioirity, q.Op, q.QuotaValue[2], q.Limit)
+		}
+		return fmt.Sprintf("P: %3v %v GID general Limit: %v",
+			q.Prioirity, q.Op, q.Limit)
+	case quotaProj:
+		if q.QuotaFlags[2] == quotaSelect {
+			return fmt.Sprintf("P: %3v %v Proj [%5v] Limit: %v",
+				q.Prioirity, q.Op, q.QuotaValue[2], q.Limit)
+		}
+		return fmt.Sprintf("P: %3v %v Proj general Limit: %v",
+			q.Prioirity, q.Op, q.Limit)
+	}
+
+	return q.Raw(false)
+}
+
+func (q QuotaRule) IsGeneral() bool {
+	return q.QuotaSource[2] != quotaLiteral && q.QuotaFlags[2] != quotaSelect
+}
+
+func (q QuotaRule) QuotaType() string {
+	switch q.QuotaSource[2] {
+	case quotaLiteral:
+		return "Literal"
+	case quotaUID:
+		return "UID"
+	case quotaGID:
+		return "GID"
+	case quotaProj:
+		return "Proj"
+	default:
+		return "-"
+	}
+}
+
+func (q QuotaRule) Raw(human bool) string {
+	if human {
+		return fmt.Sprintf("Op=%v, Value=%v, Source=%v, Flags=%v, Limit=%v Prioirty=%v",
+			q.Op, q.QuotaValue, q.QuotaSource, q.QuotaFlags, byteToHuman(q.Limit), q.Prioirity)
+	}
+	return fmt.Sprintf("Op=%v, Value=%v, Source=%v, Flags=%v, Limit=%v Prioirty=%v",
+		q.Op, q.QuotaValue, q.QuotaSource, q.QuotaFlags, q.Limit, q.Prioirity)
+}
+
+func byteToHuman(b uint64) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f%c", float64(b)/float64(div), "KMGTPE"[exp])
+}
+
+// RuleSet is a list of quota rules, when sorted these
+// will be in the order as the filesystem would match them
+type RuleSet []QuotaRule
+
+// Len returns the length of the ruleset
+func (r RuleSet) Len() int { return len(r) }
+
+// Less returns true if the i-th rule would be matched before the j-th rule
+func (r RuleSet) Less(i, j int) bool {
+	if r[i].Prioirity != r[j].Prioirity {
+		// higher priority is matched first
+		return r[i].Prioirity > r[j].Prioirity
+	}
+
+	if r[i].QuotaValue[0] != r[j].QuotaValue[0] {
+		return r[i].QuotaValue[0] > r[j].QuotaValue[0]
+	}
+	if r[i].QuotaSource[0] != r[j].QuotaSource[0] {
+		return r[i].QuotaSource[0] > r[j].QuotaSource[0]
+	}
+	if r[i].QuotaFlags[0] != r[j].QuotaFlags[0] {
+		return r[i].QuotaFlags[0] > r[j].QuotaFlags[0]
+	}
+
+	if r[i].QuotaValue[1] != r[j].QuotaValue[1] {
+		return r[i].QuotaValue[1] > r[j].QuotaValue[1]
+	}
+	if r[i].QuotaSource[1] != r[j].QuotaSource[1] {
+		return r[i].QuotaSource[1] > r[j].QuotaSource[1]
+	}
+	if r[i].QuotaFlags[1] != r[j].QuotaFlags[1] {
+		return r[i].QuotaFlags[1] > r[j].QuotaFlags[1]
+	}
+
+	if r[i].QuotaValue[2] != r[j].QuotaValue[2] {
+		return r[i].QuotaValue[2] > r[j].QuotaValue[2]
+	}
+	if r[i].QuotaSource[2] != r[j].QuotaSource[2] {
+		return r[i].QuotaSource[2] > r[j].QuotaSource[2]
+	}
+	if r[i].QuotaFlags[2] != r[j].QuotaFlags[2] {
+		return r[i].QuotaFlags[2] > r[j].QuotaFlags[2]
+	}
+
+	if r[i].Op != r[j].Op {
+		return r[i].Op > r[j].Op
+	}
+
+	if r[i].Limit != r[j].Limit {
+		return r[i].Limit > r[j].Limit
+	}
+
+	// rules are the same (should never happen)
+	return false
+}
+
+// Swap will swap the i-th and j-th elements in the ruleset
+func (r RuleSet) Swap(i, j int) { r[i], r[j] = r[j], r[i] }
+
+// GetQuotaRules initalizes reading the current quota set.
+// Quota rules are not returned in sorted order, so to get
+// the order which they are matched the full list must be
+// collected then sorted.
+func GetQuotaRules(f *os.File, count int) (*Quotas, error) {
+	if count < 1 {
+		return nil, fmt.Errorf("must provide count > 0")
+	}
+	rules := make([]quotaRule, count)
+
+	return &Quotas{rules: rules, f: f, count: count}, nil
+}
+
+// Next returns next batch of quota rules.
+func (q *Quotas) Next() ([]QuotaRule, error) {
+	if q.done {
+		return nil, nil
+	}
+
+	query := getQuotaRules{
+		Iterator: q.iter,
+		Ptr:      uint64(uintptr(unsafe.Pointer(&q.rules[0]))),
+		Nr:       uint64(q.count),
+	}
+
+	n, err := scoutfsctl(q.f, IOCGETQUOTARULES, unsafe.Pointer(&query))
+	if err != nil {
+		return nil, err
+	}
+	if n == 0 {
+		q.done = true
+		return nil, nil
+	}
+
+	ret := make([]QuotaRule, n)
+	for i := range ret {
+		ret[i].Op = QuotaOp(q.rules[i].Op)
+		ret[i].QuotaValue = q.rules[i].Name_val
+		ret[i].QuotaFlags = q.rules[i].Name_flags
+		ret[i].QuotaSource = q.rules[i].Name_source
+		ret[i].Limit = q.rules[i].Limit
+		ret[i].Prioirity = q.rules[i].Prio
+	}
+
+	q.iter = query.Iterator
+
+	return ret, nil
+}
+
+// Reset resets the quota listing to the start
+func (t *Quotas) Reset() {
+	t.done = false
+	t.iter = [2]uint64{}
+}
+
+func QuotaDelete(f *os.File, q QuotaRule) error {
+	qr := quotaRule{
+		Name_val:    q.QuotaValue,
+		Limit:       q.Limit,
+		Prio:        q.Prioirity,
+		Op:          uint8(q.Op),
+		Rule_flags:  q.Flags,
+		Name_source: q.QuotaSource,
+		Name_flags:  q.QuotaFlags,
+	}
+
+	_, err := scoutfsctl(f, IOCDELQUOTARULE, unsafe.Pointer(&qr))
+	return err
+}
+
+func QuotaAddDataLiteral(f *os.File, id1, id2, id3, limit uint64, priority uint8) error {
+	return quotaAdd(f, QuotaRule{
+		Op:          QuotaData,
+		QuotaValue:  [3]uint64{id1, id2, id3},
+		QuotaSource: [3]uint8{quotaLiteral, quotaLiteral, quotaLiteral},
+		Limit:       limit,
+		Prioirity:   priority,
+	})
+}
+
+func QuotaAddInodeLiteral(f *os.File, id1, id2, id3, limit uint64, priority uint8) error {
+	return quotaAdd(f, QuotaRule{
+		Op:          QuotaInode,
+		QuotaValue:  [3]uint64{id1, id2, id3},
+		QuotaSource: [3]uint8{quotaLiteral, quotaLiteral, quotaLiteral},
+		Limit:       limit,
+		Prioirity:   priority,
+		Flags:       quotaFlagCount,
+	})
+}
+
+func QuotaAddDataProjectGeneral(f *os.File, id1, id2, limit uint64, priority uint8) error {
+	return quotaAdd(f, QuotaRule{
+		Op:          QuotaData,
+		QuotaValue:  [3]uint64{id1, id2, 0},
+		QuotaSource: [3]uint8{quotaLiteral, quotaLiteral, quotaProj},
+		Limit:       limit,
+		Prioirity:   priority,
+	})
+}
+
+func QuotaAddInodeProjectGeneral(f *os.File, id1, id2, limit uint64, priority uint8) error {
+	return quotaAdd(f, QuotaRule{
+		Op:          QuotaInode,
+		QuotaValue:  [3]uint64{id1, id2, 0},
+		QuotaSource: [3]uint8{quotaLiteral, quotaLiteral, quotaProj},
+		Limit:       limit,
+		Prioirity:   priority,
+		Flags:       quotaFlagCount,
+	})
+}
+
+func QuotaAddDataProject(f *os.File, id1, id2, project, limit uint64, priority uint8) error {
+	return quotaAdd(f, QuotaRule{
+		Op:          QuotaData,
+		QuotaValue:  [3]uint64{id1, id2, project},
+		QuotaSource: [3]uint8{quotaLiteral, quotaLiteral, quotaProj},
+		QuotaFlags:  [3]uint8{0, 0, quotaSelect},
+		Limit:       limit,
+		Prioirity:   priority,
+	})
+}
+
+func QuotaAddInodeProject(f *os.File, id1, id2, project, limit uint64, priority uint8) error {
+	return quotaAdd(f, QuotaRule{
+		Op:          QuotaInode,
+		QuotaValue:  [3]uint64{id1, id2, project},
+		QuotaSource: [3]uint8{quotaLiteral, quotaLiteral, quotaProj},
+		QuotaFlags:  [3]uint8{0, 0, quotaSelect},
+		Limit:       limit,
+		Prioirity:   priority,
+		Flags:       quotaFlagCount,
+	})
+}
+
+func QuotaAddDataUIDGeneral(f *os.File, id1, id2, limit uint64, priority uint8) error {
+	return quotaAdd(f, QuotaRule{
+		Op:          QuotaData,
+		QuotaValue:  [3]uint64{id1, id2, 0},
+		QuotaSource: [3]uint8{quotaLiteral, quotaLiteral, quotaUID},
+		Limit:       limit,
+		Prioirity:   priority,
+	})
+}
+
+func QuotaAddInodeUIDGeneral(f *os.File, id1, id2, limit uint64, priority uint8) error {
+	return quotaAdd(f, QuotaRule{
+		Op:          QuotaInode,
+		QuotaValue:  [3]uint64{id1, id2, 0},
+		QuotaSource: [3]uint8{quotaLiteral, quotaLiteral, quotaUID},
+		Limit:       limit,
+		Prioirity:   priority,
+		Flags:       quotaFlagCount,
+	})
+}
+
+func QuotaAddDataUID(f *os.File, id1, id2, uid, limit uint64, priority uint8) error {
+	return quotaAdd(f, QuotaRule{
+		Op:          QuotaData,
+		QuotaValue:  [3]uint64{id1, id2, uid},
+		QuotaSource: [3]uint8{quotaLiteral, quotaLiteral, quotaUID},
+		QuotaFlags:  [3]uint8{0, 0, quotaSelect},
+		Limit:       limit,
+		Prioirity:   priority,
+	})
+}
+
+func QuotaAddInodeUID(f *os.File, id1, id2, uid, limit uint64, priority uint8) error {
+	return quotaAdd(f, QuotaRule{
+		Op:          QuotaInode,
+		QuotaValue:  [3]uint64{id1, id2, uid},
+		QuotaSource: [3]uint8{quotaLiteral, quotaLiteral, quotaUID},
+		QuotaFlags:  [3]uint8{0, 0, quotaSelect},
+		Limit:       limit,
+		Prioirity:   priority,
+		Flags:       quotaFlagCount,
+	})
+}
+
+func QuotaAddDataGIDGeneral(f *os.File, id1, id2, limit uint64, priority uint8) error {
+	return quotaAdd(f, QuotaRule{
+		Op:          QuotaData,
+		QuotaValue:  [3]uint64{id1, id2, 0},
+		QuotaSource: [3]uint8{quotaLiteral, quotaLiteral, quotaGID},
+		Limit:       limit,
+		Prioirity:   priority,
+	})
+}
+
+func QuotaAddInodeGIDGeneral(f *os.File, id1, id2, limit uint64, priority uint8) error {
+	return quotaAdd(f, QuotaRule{
+		Op:          QuotaInode,
+		QuotaValue:  [3]uint64{id1, id2, 0},
+		QuotaSource: [3]uint8{quotaLiteral, quotaLiteral, quotaGID},
+		Limit:       limit,
+		Prioirity:   priority,
+		Flags:       quotaFlagCount,
+	})
+}
+
+func QuotaAddDataGID(f *os.File, id1, id2, gid, limit uint64, priority uint8) error {
+	return quotaAdd(f, QuotaRule{
+		Op:          QuotaData,
+		QuotaValue:  [3]uint64{id1, id2, gid},
+		QuotaSource: [3]uint8{quotaLiteral, quotaLiteral, quotaGID},
+		QuotaFlags:  [3]uint8{0, 0, quotaSelect},
+		Limit:       limit,
+		Prioirity:   priority,
+	})
+}
+
+func QuotaAddInodeGID(f *os.File, id1, id2, gid, limit uint64, priority uint8) error {
+	return quotaAdd(f, QuotaRule{
+		Op:          QuotaInode,
+		QuotaValue:  [3]uint64{id1, id2, gid},
+		QuotaSource: [3]uint8{quotaLiteral, quotaLiteral, quotaGID},
+		QuotaFlags:  [3]uint8{0, 0, quotaSelect},
+		Limit:       limit,
+		Prioirity:   priority,
+		Flags:       quotaFlagCount,
+	})
+}
+
+func quotaAdd(f *os.File, q QuotaRule) error {
+	qr := quotaRule{
+		Name_val:    q.QuotaValue,
+		Limit:       q.Limit,
+		Prio:        q.Prioirity,
+		Op:          uint8(q.Op),
+		Rule_flags:  q.Flags,
+		Name_source: q.QuotaSource,
+		Name_flags:  q.QuotaFlags,
+	}
+
+	_, err := scoutfsctl(f, IOCADDQUOTARULE, unsafe.Pointer(&qr))
+	return err
+}
+
+func GetProjectID(f *os.File) (uint64, error) {
+	var projectid uint64
+	_, err := scoutfsctl(f, IOCGETPROJECTID, unsafe.Pointer(&projectid))
+	return projectid, err
+}
+
+func SetProjectID(f *os.File, projectid uint64) error {
+	_, err := scoutfsctl(f, IOCSETPROJECTID, unsafe.Pointer(&projectid))
+	return err
+}

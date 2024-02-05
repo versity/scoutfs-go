@@ -67,6 +67,10 @@ package scoutfs
 //
 // typedef struct scoutfs_ioctl_alloc_detail_entry_mod scoutfs_ioctl_alloc_detail_entry_t;
 // typedef struct scoutfs_ioctl_move_blocks scoutfs_ioctl_move_blocks_t;
+// typedef struct scoutfs_ioctl_quota_rule scoutfs_ioctl_quota_rule_t;
+// typedef struct scoutfs_ioctl_get_quota_rules scoutfs_ioctl_get_quota_rules_t;
+// typedef struct scoutfs_ioctl_xattr_index_entry scoutfs_ioctl_xattr_index_entry_t;
+// typedef struct scoutfs_ioctl_read_xattr_index scoutfs_ioctl_read_xattr_index_t;
 import "C"
 
 const IOCQUERYINODES = C.SCOUTFS_IOC_WALK_INODES
@@ -84,6 +88,11 @@ const IOCALLOCDETAIL = C.SCOUTFS_IOC_ALLOC_DETAIL
 const IOCMOVEBLOCKS = C.SCOUTFS_IOC_MOVE_BLOCKS
 const IOCREADXATTRTOTALS = C.SCOUTFS_IOC_READ_XATTR_TOTALS
 const IOCGETREFERRINGENTRIES = C.SCOUTFS_IOC_GET_REFERRING_ENTRIES
+const IOCGETQUOTARULES = C.SCOUTFS_IOC_GET_QUOTA_RULES
+const IOCDELQUOTARULE = C.SCOUTFS_IOC_DEL_QUOTA_RULE
+const IOCADDQUOTARULE = C.SCOUTFS_IOC_ADD_QUOTA_RULE
+const IOCGETPROJECTID = C.SCOUTFS_IOC_GET_PROJECT_ID
+const IOCSETPROJECTID = C.SCOUTFS_IOC_SET_PROJECT_ID
 
 const QUERYINODESMETASEQ = C.SCOUTFS_IOC_WALK_INODES_META_SEQ
 const QUERYINODESDATASEQ = C.SCOUTFS_IOC_WALK_INODES_DATA_SEQ
@@ -118,6 +127,10 @@ type readXattrTotals C.scoutfs_ioctl_read_xattr_totals_t
 type xattrTotal C.scoutfs_ioctl_xattr_total_t
 type getReferringEntries C.scoutfs_ioctl_get_referring_entries_t
 type scoutfsDirent C.scoutfs_ioctl_dirent_t
+type quotaRule C.scoutfs_ioctl_quota_rule_t
+type getQuotaRules C.scoutfs_ioctl_get_quota_rules_t
+type indexEntry C.scoutfs_ioctl_xattr_index_entry_t
+type readXattrIndex C.scoutfs_ioctl_read_xattr_index_t
 
 const sizeofstatfsMore = C.sizeof_scoutfs_ioctl_statfs_more_t
 const sizeofxattrTotal = C.sizeof_scoutfs_ioctl_xattr_total_t

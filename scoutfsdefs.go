@@ -18,6 +18,11 @@ const IOCALLOCDETAIL = 0x4010e80c
 const IOCMOVEBLOCKS = 0x4030e80d
 const IOCREADXATTRTOTALS = 0x4028e80f
 const IOCGETREFERRINGENTRIES = 0x4028e811
+const IOCGETQUOTARULES = 0x8020e814
+const IOCDELQUOTARULE = 0x4030e816
+const IOCADDQUOTARULE = 0x4030e815
+const IOCGETPROJECTID = 0x8008e812
+const IOCSETPROJECTID = 0x4008e813
 
 const QUERYINODESMETASEQ = 0x0
 const QUERYINODESDATASEQ = 0x1
@@ -176,6 +181,33 @@ type scoutfsDirent struct {
 	D_type		uint8
 	Name_len	uint8
 	Name		[3]uint8
+}
+type quotaRule struct {
+	Name_val	[3]uint64
+	Limit		uint64
+	Prio		uint8
+	Op		uint8
+	Rule_flags	uint8
+	Name_source	[3]uint8
+	Name_flags	[3]uint8
+	X_pad		[7]uint8
+}
+type getQuotaRules struct {
+	Iterator	[2]uint64
+	Ptr		uint64
+	Nr		uint64
+}
+type indexEntry struct {
+	A	uint64
+	B	uint64
+	Ino	uint64
+}
+type readXattrIndex struct {
+	Flags	uint64
+	First	indexEntry
+	Last	indexEntry
+	Ptr	uint64
+	Nr	uint64
 }
 
 const sizeofstatfsMore = 0x30
