@@ -1381,6 +1381,7 @@ func (q *Quotas) Next() ([]QuotaRule, error) {
 		ret[i].QuotaSource = q.rules[i].Name_source
 		ret[i].Limit = q.rules[i].Limit
 		ret[i].Prioirity = q.rules[i].Prio
+		ret[i].Flags = q.rules[i].Rule_flags
 	}
 
 	q.iter = query.Iterator
