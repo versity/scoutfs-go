@@ -1181,9 +1181,9 @@ type QuotaOp uint8
 func (q QuotaOp) String() string {
 	switch q {
 	case QuotaInode:
-		return "Inode  "
+		return "File"
 	case QuotaData:
-		return "Size   "
+		return "Size"
 	default:
 		return "Unknown"
 	}
@@ -1208,32 +1208,73 @@ type QuotaRule struct {
 	Flags       uint8
 }
 
+const (
+	prioPad = 3  // length largest prio string "255"
+	opPad   = -7 // length largest op string "Unknown"
+)
+
 func (q QuotaRule) String() string {
 	switch q.QuotaSource[2] {
 	case quotaLiteral:
-		return fmt.Sprintf("P: %3v %v Literal Limit: %v",
-			q.Prioirity, q.Op, q.Limit)
+		return fmt.Sprintf("P: %*v %*v Literal Limit: %v",
+			prioPad, q.Prioirity, opPad, q.Op, q.Limit)
 	case quotaUID:
 		if q.QuotaFlags[2] == quotaSelect {
-			return fmt.Sprintf("P: %3v %v UID [%5v] Limit: %v",
-				q.Prioirity, q.Op, q.QuotaValue[2], q.Limit)
+			return fmt.Sprintf("P: %*v %*v UID [%5v] Limit: %v",
+				prioPad, q.Prioirity, opPad, q.Op, q.QuotaValue[2], q.Limit)
 		}
-		return fmt.Sprintf("P: %3v %v UID general Limit: %v",
-			q.Prioirity, q.Op, q.Limit)
+		return fmt.Sprintf("P: %*v %*v UID general Limit: %v",
+			prioPad, q.Prioirity, opPad, q.Op, q.Limit)
 	case quotaGID:
 		if q.QuotaFlags[2] == quotaSelect {
-			return fmt.Sprintf("P: %3v %v GID [%5v] Limit: %v",
-				q.Prioirity, q.Op, q.QuotaValue[2], q.Limit)
+			return fmt.Sprintf("P: %*v %*v GID [%5v] Limit: %v",
+				prioPad, q.Prioirity, opPad, q.Op, q.QuotaValue[2], q.Limit)
 		}
-		return fmt.Sprintf("P: %3v %v GID general Limit: %v",
-			q.Prioirity, q.Op, q.Limit)
+		return fmt.Sprintf("P: %*v %*v GID general Limit: %v",
+			prioPad, q.Prioirity, opPad, q.Op, q.Limit)
 	case quotaProj:
 		if q.QuotaFlags[2] == quotaSelect {
-			return fmt.Sprintf("P: %3v %v Proj [%5v] Limit: %v",
-				q.Prioirity, q.Op, q.QuotaValue[2], q.Limit)
+			return fmt.Sprintf("P: %*v %*v Proj [%5v] Limit: %v",
+				prioPad, q.Prioirity, opPad, q.Op, q.QuotaValue[2], q.Limit)
 		}
-		return fmt.Sprintf("P: %3v %v Proj general Limit: %v",
-			q.Prioirity, q.Op, q.Limit)
+		return fmt.Sprintf("P: %*v %*v Proj general Limit: %v",
+			prioPad, q.Prioirity, opPad, q.Op, q.Limit)
+	}
+
+	return q.Raw(false)
+}
+
+func (q QuotaRule) HumanString() string {
+	limit := fmt.Sprintf("%v", q.Limit)
+	if q.Op == QuotaData {
+		limit = byteToHuman(q.Limit)
+	}
+
+	switch q.QuotaSource[2] {
+	case quotaLiteral:
+		return fmt.Sprintf("P: %*v %*v Literal Limit: %v",
+			prioPad, q.Prioirity, opPad, q.Op, limit)
+	case quotaUID:
+		if q.QuotaFlags[2] == quotaSelect {
+			return fmt.Sprintf("P: %*v %*v UID [%5v] Limit: %v",
+				prioPad, q.Prioirity, opPad, q.Op, q.QuotaValue[2], limit)
+		}
+		return fmt.Sprintf("P: %*v %*v UID general Limit: %v",
+			prioPad, q.Prioirity, opPad, q.Op, limit)
+	case quotaGID:
+		if q.QuotaFlags[2] == quotaSelect {
+			return fmt.Sprintf("P: %*v %*v GID [%5v] Limit: %v",
+				prioPad, q.Prioirity, opPad, q.Op, q.QuotaValue[2], limit)
+		}
+		return fmt.Sprintf("P: %*v %*v GID general Limit: %v",
+			prioPad, q.Prioirity, opPad, q.Op, limit)
+	case quotaProj:
+		if q.QuotaFlags[2] == quotaSelect {
+			return fmt.Sprintf("P: %*v %*v Proj [%5v] Limit: %v",
+				prioPad, q.Prioirity, opPad, q.Op, q.QuotaValue[2], limit)
+		}
+		return fmt.Sprintf("P: %*v %*v Proj general Limit: %v",
+			prioPad, q.Prioirity, opPad, q.Op, limit)
 	}
 
 	return q.Raw(false)
