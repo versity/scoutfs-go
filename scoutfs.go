@@ -1220,17 +1220,17 @@ func (q QuotaRule) String() string {
 			prioPad, q.Prioirity, opPad, q.Op, q.Limit)
 	case quotaUID:
 		if q.QuotaFlags[2] == quotaSelect {
-			return fmt.Sprintf("P: %*v %*v UID [%5v] Limit: %v",
+			return fmt.Sprintf("P: %*v %*v UID  [%5v] Limit: %v",
 				prioPad, q.Prioirity, opPad, q.Op, q.QuotaValue[2], q.Limit)
 		}
-		return fmt.Sprintf("P: %*v %*v UID general Limit: %v",
+		return fmt.Sprintf("P: %*v %*v UID  general Limit: %v",
 			prioPad, q.Prioirity, opPad, q.Op, q.Limit)
 	case quotaGID:
 		if q.QuotaFlags[2] == quotaSelect {
-			return fmt.Sprintf("P: %*v %*v GID [%5v] Limit: %v",
+			return fmt.Sprintf("P: %*v %*v GID  [%5v] Limit: %v",
 				prioPad, q.Prioirity, opPad, q.Op, q.QuotaValue[2], q.Limit)
 		}
-		return fmt.Sprintf("P: %*v %*v GID general Limit: %v",
+		return fmt.Sprintf("P: %*v %*v GID  general Limit: %v",
 			prioPad, q.Prioirity, opPad, q.Op, q.Limit)
 	case quotaProj:
 		if q.QuotaFlags[2] == quotaSelect {
