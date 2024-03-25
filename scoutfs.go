@@ -1244,6 +1244,37 @@ func (q QuotaRule) String() string {
 	return q.Raw(false)
 }
 
+func (q QuotaRule) StringNoLimit() string {
+	switch q.QuotaSource[2] {
+	case quotaLiteral:
+		return fmt.Sprintf("P: %*v %*v Literal",
+			prioPad, q.Prioirity, opPad, q.Op)
+	case quotaUID:
+		if q.QuotaFlags[2] == quotaSelect {
+			return fmt.Sprintf("P: %*v %*v UID  [%5v]",
+				prioPad, q.Prioirity, opPad, q.Op, q.QuotaValue[2])
+		}
+		return fmt.Sprintf("P: %*v %*v UID  general",
+			prioPad, q.Prioirity, opPad, q.Op)
+	case quotaGID:
+		if q.QuotaFlags[2] == quotaSelect {
+			return fmt.Sprintf("P: %*v %*v GID  [%5v]",
+				prioPad, q.Prioirity, opPad, q.Op, q.QuotaValue[2])
+		}
+		return fmt.Sprintf("P: %*v %*v GID  general",
+			prioPad, q.Prioirity, opPad, q.Op)
+	case quotaProj:
+		if q.QuotaFlags[2] == quotaSelect {
+			return fmt.Sprintf("P: %*v %*v Proj [%5v]",
+				prioPad, q.Prioirity, opPad, q.Op, q.QuotaValue[2])
+		}
+		return fmt.Sprintf("P: %*v %*v Proj general",
+			prioPad, q.Prioirity, opPad, q.Op)
+	}
+
+	return q.Raw(false)
+}
+
 func (q QuotaRule) HumanString() string {
 	limit := fmt.Sprintf("%v", q.Limit)
 	if q.Op == QuotaData {
