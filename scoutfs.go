@@ -495,7 +495,7 @@ type XattrQuery struct {
 
 // NewXattrQuery creates a new scoutfs Xattr Query
 // Specify query xattr key
-// and specify optinally batching with WithXBatchSize()
+// and specify optionally batching with WithXBatchSize()
 // An open file within scoutfs is supplied for ioctls
 // (usually just the base mount point directory)
 func NewXattrQuery(f *os.File, key string, opts ...XOption) *XattrQuery {
@@ -577,7 +577,9 @@ func (q *XattrQuery) Next() ([]uint64, error) {
 	}
 
 	q.next = e
-	q.next++
+	if q.next < math.MaxUint64 {
+		q.next++
+	}
 
 	return inodes, nil
 }
@@ -1659,4 +1661,122 @@ func GetProjectID(f *os.File) (uint64, error) {
 func SetProjectID(f *os.File, projectid uint64) error {
 	_, err := scoutfsctl(f, IOCSETPROJECTID, unsafe.Pointer(&projectid))
 	return err
+}
+
+type IndexSearch struct {
+	// file handle for ioctls
+	f *os.File
+	// The index search end
+	end indexEntry
+	// last returned position
+	pos indexEntry
+	// max number of inodes to return per Next() call
+	batch uint64
+	// buffer for return results
+	buf []byte
+}
+
+const (
+	indexXattrBatch = 1024
+)
+
+func NewIndexSearch(f *os.File, key, start, end uint64, opts ...IOption) *IndexSearch {
+	i := &IndexSearch{
+		f: f,
+		pos: indexEntry{
+			A: key,
+			B: start,
+		},
+		end: indexEntry{
+			A:   key,
+			B:   end,
+			Ino: math.MaxUint64,
+		},
+		batch: indexXattrBatch,
+	}
+
+	for _, opt := range opts {
+		opt(i)
+	}
+
+	i.buf = make([]byte, int(unsafe.Sizeof(indexEntry{}))*indexXattrBatch)
+
+	return i
+}
+
+// IOption sets various options for NewIndexSearch
+type IOption func(*IndexSearch)
+
+// WithIBatchSize sets the max number of inodes to be returned at a time
+func WithIBatchSize(size uint64) IOption {
+	return func(q *IndexSearch) {
+		q.batch = size
+	}
+}
+
+// WithIStartIno starts query at speficied inode
+func WithIStartIno(ino uint64) IOption {
+	return func(q *IndexSearch) {
+		q.pos.Ino = ino
+	}
+}
+
+// WithIEndIno stop query at speficied inode
+func WithIEndIno(ino uint64) IOption {
+	return func(q *IndexSearch) {
+		q.end.Ino = ino
+	}
+}
+
+// IndexEnt is type returned by index query Next() call
+type IndexEnt struct {
+	Inode uint64
+	Value uint64
+}
+
+func (i *IndexSearch) Next() ([]IndexEnt, error) {
+	query := readXattrIndex{
+		First: i.pos,
+		Last:  i.end,
+		Ptr:   uint64(uintptr(unsafe.Pointer(&i.buf[0]))),
+		Nr:    indexXattrBatch,
+	}
+
+	n, err := scoutfsctl(i.f, IOCREADXATTRINDEX, unsafe.Pointer(&query))
+	if err != nil {
+		return nil, err
+	}
+
+	if n == 0 {
+		return nil, nil
+	}
+
+	rbuf := bytes.NewReader(i.buf)
+	inodes := make([]IndexEnt, n)
+
+	var e indexEntry
+	for i := 0; i < n; i++ {
+		err := binary.Read(rbuf, binary.LittleEndian, &e)
+		if err != nil {
+			return nil, err
+		}
+
+		inodes[i].Inode = e.Ino
+		inodes[i].Value = e.B
+	}
+	i.pos = e.increment()
+
+	return inodes, nil
+}
+
+// increment returns the next seq entry position
+func (i indexEntry) increment() indexEntry {
+	i.Ino++
+	if i.Ino == 0 {
+		i.B++
+		if i.B == 0 {
+			i.A++
+		}
+	}
+	return i
 }
