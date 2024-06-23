@@ -71,6 +71,7 @@ package scoutfs
 // typedef struct scoutfs_ioctl_get_quota_rules scoutfs_ioctl_get_quota_rules_t;
 // typedef struct scoutfs_ioctl_xattr_index_entry scoutfs_ioctl_xattr_index_entry_t;
 // typedef struct scoutfs_ioctl_read_xattr_index scoutfs_ioctl_read_xattr_index_t;
+// typedef struct scoutfs_ioctl_inode_attr_x scoutfs_ioctl_inode_attr_x_t;
 import "C"
 
 const IOCQUERYINODES = C.SCOUTFS_IOC_WALK_INODES
@@ -91,8 +92,6 @@ const IOCGETREFERRINGENTRIES = C.SCOUTFS_IOC_GET_REFERRING_ENTRIES
 const IOCGETQUOTARULES = C.SCOUTFS_IOC_GET_QUOTA_RULES
 const IOCDELQUOTARULE = C.SCOUTFS_IOC_DEL_QUOTA_RULE
 const IOCADDQUOTARULE = C.SCOUTFS_IOC_ADD_QUOTA_RULE
-const IOCGETPROJECTID = C.SCOUTFS_IOC_GET_PROJECT_ID
-const IOCSETPROJECTID = C.SCOUTFS_IOC_SET_PROJECT_ID
 const IOCREADXATTRINDEX = C.SCOUTFS_IOC_READ_XATTR_INDEX
 
 const QUERYINODESMETASEQ = C.SCOUTFS_IOC_WALK_INODES_META_SEQ
@@ -107,6 +106,22 @@ const SEARCHXATTRSOFLAGEND = C.SCOUTFS_SEARCH_XATTRS_OFLAG_END
 const MBSTAGEFLG = C.SCOUTFS_IOC_MB_STAGE
 
 const DIRENTFLAGLAST = C.SCOUTFS_IOCTL_DIRENT_FLAG_LAST
+
+const IOCIAXFSIZEOFFLINE = C.SCOUTFS_IOC_IAX_F_SIZE_OFFLINE
+const IOCIAXBRETENTION = C.SCOUTFS_IOC_IAX_B_RETENTION
+const IOCIAXMETASEQ = C.SCOUTFS_IOC_IAX_META_SEQ
+const IOCIAXDATASEQ = C.SCOUTFS_IOC_IAX_DATA_SEQ
+const IOCIAXDATAVERSION = C.SCOUTFS_IOC_IAX_DATA_VERSION
+const IOCIAXONLINEBLOCKS = C.SCOUTFS_IOC_IAX_ONLINE_BLOCKS
+const IOCIAXOFFLINEBLOCKS = C.SCOUTFS_IOC_IAX_OFFLINE_BLOCKS
+const IOCIAXCTIME = C.SCOUTFS_IOC_IAX_CTIME
+const IOCIAXCRTIME = C.SCOUTFS_IOC_IAX_CRTIME
+const IOCIAXSIZE = C.SCOUTFS_IOC_IAX_SIZE
+const IOCIAXRETENTION = C.SCOUTFS_IOC_IAX_RETENTION
+const IOCIAXPROJECTID = C.SCOUTFS_IOC_IAX_PROJECT_ID
+const IOCIAXBITS = C.SCOUTFS_IOC_IAX__BITS
+const IOCGETATTRX = C.SCOUTFS_IOC_GET_ATTR_X
+const IOCSETATTRX = C.SCOUTFS_IOC_SET_ATTR_X
 
 type InodesEntry C.scoutfs_ioctl_walk_inodes_entry_t
 type queryInodes C.scoutfs_ioctl_walk_inodes_t
@@ -132,6 +147,7 @@ type quotaRule C.scoutfs_ioctl_quota_rule_t
 type getQuotaRules C.scoutfs_ioctl_get_quota_rules_t
 type indexEntry C.scoutfs_ioctl_xattr_index_entry_t
 type readXattrIndex C.scoutfs_ioctl_read_xattr_index_t
+type inodeAttrX C.scoutfs_ioctl_inode_attr_x_t
 
 const sizeofstatfsMore = C.sizeof_scoutfs_ioctl_statfs_more_t
 const sizeofxattrTotal = C.sizeof_scoutfs_ioctl_xattr_total_t

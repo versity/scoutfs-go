@@ -1653,14 +1653,41 @@ func quotaAdd(f *os.File, q QuotaRule) error {
 }
 
 func GetProjectID(f *os.File) (uint64, error) {
-	var projectid uint64
-	_, err := scoutfsctl(f, IOCGETPROJECTID, unsafe.Pointer(&projectid))
-	return projectid, err
+	var iax inodeAttrX
+	iax.X_mask = IOCIAXPROJECTID
+	_, err := scoutfsctl(f, IOCGETATTRX, unsafe.Pointer(&iax))
+	return iax.Project_id, err
 }
 
 func SetProjectID(f *os.File, projectid uint64) error {
-	_, err := scoutfsctl(f, IOCSETPROJECTID, unsafe.Pointer(&projectid))
+	var iax inodeAttrX
+	iax.X_mask = IOCIAXPROJECTID
+	iax.Project_id = projectid
+	_, err := scoutfsctl(f, IOCSETATTRX, unsafe.Pointer(&iax))
 	return err
+}
+
+func SetRetention(f *os.File) error {
+	var iax inodeAttrX
+	iax.X_mask = IOCIAXRETENTION
+	iax.Bits = IOCIAXBRETENTION
+	_, err := scoutfsctl(f, IOCSETATTRX, unsafe.Pointer(&iax))
+	return err
+}
+
+func ClearRetention(f *os.File) error {
+	var iax inodeAttrX
+	iax.X_mask = IOCIAXRETENTION
+	_, err := scoutfsctl(f, IOCSETATTRX, unsafe.Pointer(&iax))
+	return err
+}
+
+func GetRetention(f *os.File) (bool, error) {
+	var iax inodeAttrX
+	iax.X_mask = IOCIAXRETENTION
+	_, err := scoutfsctl(f, IOCGETATTRX, unsafe.Pointer(&iax))
+	return ((iax.X_mask&IOCIAXRETENTION == IOCIAXRETENTION) &&
+		(iax.Bits&IOCIAXBRETENTION == IOCIAXBRETENTION)), err
 }
 
 type IndexSearch struct {
