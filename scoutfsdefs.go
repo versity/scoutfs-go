@@ -21,8 +21,6 @@ const IOCGETREFERRINGENTRIES = 0x4028e811
 const IOCGETQUOTARULES = 0x8020e814
 const IOCDELQUOTARULE = 0x4030e816
 const IOCADDQUOTARULE = 0x4030e815
-const IOCGETPROJECTID = 0x8008e812
-const IOCSETPROJECTID = 0x4008e813
 const IOCREADXATTRINDEX = 0x8048e817
 
 const QUERYINODESMETASEQ = 0x0
@@ -37,6 +35,22 @@ const SEARCHXATTRSOFLAGEND = 0x1
 const MBSTAGEFLG = 0x1
 
 const DIRENTFLAGLAST = 0x1
+
+const IOCIAXFSIZEOFFLINE = 0x1
+const IOCIAXBRETENTION = 0x1
+const IOCIAXMETASEQ = 0x1
+const IOCIAXDATASEQ = 0x2
+const IOCIAXDATAVERSION = 0x4
+const IOCIAXONLINEBLOCKS = 0x8
+const IOCIAXOFFLINEBLOCKS = 0x10
+const IOCIAXCTIME = 0x20
+const IOCIAXCRTIME = 0x40
+const IOCIAXSIZE = 0x80
+const IOCIAXRETENTION = 0x100
+const IOCIAXPROJECTID = 0x200
+const IOCIAXBITS = 0x100
+const IOCGETATTRX = 0x4068e812
+const IOCSETATTRX = 0x4068e813
 
 type InodesEntry struct {
 	Major	uint64
@@ -209,6 +223,22 @@ type readXattrIndex struct {
 	Last	indexEntry
 	Ptr	uint64
 	Nr	uint64
+}
+type inodeAttrX struct {
+	X_mask		uint64
+	X_flags		uint64
+	Meta_seq	uint64
+	Data_seq	uint64
+	Data_version	uint64
+	Online_blocks	uint64
+	Offline_blocks	uint64
+	Ctime_sec	uint64
+	Ctime_nsec	uint32
+	Crtime_nsec	uint32
+	Crtime_sec	uint64
+	Size		uint64
+	Bits		uint64
+	Project_id	uint64
 }
 
 const sizeofstatfsMore = 0x30
