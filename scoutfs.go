@@ -1707,17 +1707,17 @@ const (
 	indexXattrBatch = 1024
 )
 
-func NewIndexSearch(f *os.File, key, start, end uint64, opts ...IOption) *IndexSearch {
+func NewIndexSearch(f *os.File, key uint8, start, end uint64, opts ...IOption) *IndexSearch {
 	i := &IndexSearch{
 		f: f,
 		pos: indexEntry{
-			A: key,
-			B: start,
+			Major: key,
+			Minor: start,
 		},
 		end: indexEntry{
-			A:   key,
-			B:   end,
-			Ino: math.MaxUint64,
+			Major: key,
+			Minor: end,
+			Ino:   math.MaxUint64,
 		},
 		batch: indexXattrBatch,
 	}
@@ -1789,7 +1789,7 @@ func (i *IndexSearch) Next() ([]IndexEnt, error) {
 		}
 
 		inodes[i].Inode = e.Ino
-		inodes[i].Value = e.B
+		inodes[i].Value = e.Minor
 	}
 	i.pos = e.increment()
 
@@ -1800,9 +1800,9 @@ func (i *IndexSearch) Next() ([]IndexEnt, error) {
 func (i indexEntry) increment() indexEntry {
 	i.Ino++
 	if i.Ino == 0 {
-		i.B++
-		if i.B == 0 {
-			i.A++
+		i.Minor++
+		if i.Minor == 0 {
+			i.Major++
 		}
 	}
 	return i

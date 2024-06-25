@@ -213,9 +213,10 @@ type getQuotaRules struct {
 	Nr		uint64
 }
 type indexEntry struct {
-	A	uint64
-	B	uint64
+	Minor	uint64
 	Ino	uint64
+	Major	uint8
+	X_pad	[7]uint8
 }
 type readXattrIndex struct {
 	Flags	uint64
