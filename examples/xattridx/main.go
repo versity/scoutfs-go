@@ -13,7 +13,7 @@ func main() {
 	// flags mount path name
 	mountPath := flag.String("mount", "", "mount path name")
 	// flags index type uint64
-	indexType := flag.Uint64("type", 0, "index type")
+	indexType := flag.Uint("type", 0, "index type")
 	// flags index start uint64
 	indexStart := flag.Uint64("start", 0, "index start")
 	// flags index end uint64
@@ -29,7 +29,12 @@ func main() {
 	}
 	defer f.Close()
 
-	idx := scoutfs.NewIndexSearch(f, *indexType, *indexStart, *indexEnd)
+	if *indexType > 255 {
+		log.Fatal("index type out of bounds")
+	}
+	itype := uint8(*indexType)
+
+	idx := scoutfs.NewIndexSearch(f, itype, *indexStart, *indexEnd)
 	for {
 		ents, err := idx.Next()
 		if err != nil {
