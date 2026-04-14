@@ -72,6 +72,7 @@ package scoutfs
 // typedef struct scoutfs_ioctl_xattr_index_entry scoutfs_ioctl_xattr_index_entry_t;
 // typedef struct scoutfs_ioctl_read_xattr_index scoutfs_ioctl_read_xattr_index_t;
 // typedef struct scoutfs_ioctl_inode_attr_x scoutfs_ioctl_inode_attr_x_t;
+// typedef struct scoutfs_ioctl_punch_offline scoutfs_ioctl_punch_offline_t;
 import "C"
 
 const IOCQUERYINODES = C.SCOUTFS_IOC_WALK_INODES
@@ -122,6 +123,7 @@ const IOCIAXPROJECTID = C.SCOUTFS_IOC_IAX_PROJECT_ID
 const IOCIAXBITS = C.SCOUTFS_IOC_IAX__BITS
 const IOCGETATTRX = C.SCOUTFS_IOC_GET_ATTR_X
 const IOCSETATTRX = C.SCOUTFS_IOC_SET_ATTR_X
+const IOCPUNCHOFFLINE = C.SCOUTFS_IOC_PUNCH_OFFLINE
 
 type InodesEntry C.scoutfs_ioctl_walk_inodes_entry_t
 type queryInodes C.scoutfs_ioctl_walk_inodes_t
@@ -148,6 +150,7 @@ type getQuotaRules C.scoutfs_ioctl_get_quota_rules_t
 type indexEntry C.scoutfs_ioctl_xattr_index_entry_t
 type readXattrIndex C.scoutfs_ioctl_read_xattr_index_t
 type inodeAttrX C.scoutfs_ioctl_inode_attr_x_t
+type punchOffline C.scoutfs_ioctl_punch_offline_t
 
 const sizeofstatfsMore = C.sizeof_scoutfs_ioctl_statfs_more_t
 const sizeofxattrTotal = C.sizeof_scoutfs_ioctl_xattr_total_t
