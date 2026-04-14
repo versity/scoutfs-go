@@ -51,6 +51,7 @@ const IOCIAXPROJECTID = 0x200
 const IOCIAXBITS = 0x100
 const IOCGETATTRX = 0x4068e812
 const IOCSETATTRX = 0x4068e813
+const IOCPUNCHOFFLINE = 0x4020e818
 
 type InodesEntry struct {
 	Major	uint64
@@ -240,6 +241,12 @@ type inodeAttrX struct {
 	Size		uint64
 	Bits		uint64
 	Project_id	uint64
+}
+type punchOffline struct {
+	Offset	uint64
+	Len	uint64
+	Version	uint64
+	Flags	uint64
 }
 
 const sizeofstatfsMore = 0x30

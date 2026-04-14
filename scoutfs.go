@@ -905,11 +905,7 @@ func StageMoveAt(from, to *os.File, len, fromOffset, toOffset, version uint64) e
 	}
 
 	_, err := scoutfsctl(to, IOCMOVEBLOCKS, unsafe.Pointer(&mb))
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // XattrTotal has the total values matching id triple
@@ -1806,4 +1802,31 @@ func (i indexEntry) increment() indexEntry {
 		}
 	}
 	return i
+}
+
+// PunchHole is a limited and specific version of hole punching.  It's an
+// archive layer operation that only converts unmapped offline extents
+// into sparse extents.  It is intended to be used when restoring sparse
+// files after the initial creation set the entire file size offline.
+//
+// The offset and len fields are in units of bytes and must be aligned
+// to the small (4KiB) block size.  All regions of offline extents
+// covered by the region will be converted into sparse online extents,
+// including regions that straddle the boundaries of the region.  Any
+// existing sparse extents in the region are ignored.
+//
+// The data_version must match the inode or EINVAL is returned.  The
+// data_version is not modified by this operation.
+//
+// EINVAL is returned if any mapped extents are found in the region.  If
+// an error is returned then partial progress may have been made.
+func PunchHole(f *os.File, length, offset, version uint64) error {
+	po := punchOffline{
+		Offset:  offset,
+		Len:     length,
+		Version: version,
+	}
+
+	_, err := scoutfsctl(f, IOCPUNCHOFFLINE, unsafe.Pointer(&po))
+	return err
 }
