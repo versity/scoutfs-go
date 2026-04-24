@@ -1830,3 +1830,260 @@ func PunchHole(f *os.File, length, offset, version uint64) error {
 	_, err := scoutfsctl(f, IOCPUNCHOFFLINE, unsafe.Pointer(&po))
 	return err
 }
+
+// RawMetaSeqReader iterates over meta_seq items without cluster locking.
+// Use NewRawMetaSeqReader to create a new reader.
+type RawMetaSeqReader struct {
+	fsfd  *os.File
+	start MetaSeqEntry
+	end   MetaSeqEntry
+	last  MetaSeqEntry
+	batch uint32
+	buf   []byte
+	done  bool
+}
+
+// RMSOption sets various options for NewRawMetaSeqReader
+type RMSOption func(*RawMetaSeqReader)
+
+// WithRMSBatchSize sets the max number of meta_seq items to be returned at a time
+func WithRMSBatchSize(size uint32) RMSOption {
+	return func(r *RawMetaSeqReader) {
+		r.batch = size
+	}
+}
+
+// WithRMSRange sets the start and end range for the meta_seq reader
+func WithRMSRange(start, end MetaSeqEntry) RMSOption {
+	return func(r *RawMetaSeqReader) {
+		r.start = start
+		r.end = end
+	}
+}
+
+// NewRawMetaSeqReader creates a new reader for raw meta_seq items.
+// An open file within scoutfs is supplied for ioctls
+// (usually just the base mount point directory).
+func NewRawMetaSeqReader(f *os.File, opts ...RMSOption) *RawMetaSeqReader {
+	r := &RawMetaSeqReader{
+		fsfd:  f,
+		batch: 1024,
+		end:   MetaSeqEntry{Seq: max64, Ino: max64},
+	}
+
+	for _, opt := range opts {
+		opt(r)
+	}
+
+	r.buf = make([]byte, int(unsafe.Sizeof(MetaSeqEntry{}))*int(r.batch))
+
+	return r
+}
+
+// Next gets the next batch of meta_seq items.
+// Returns nil, nil when iteration is complete.
+func (r *RawMetaSeqReader) Next() ([]MetaSeqEntry, error) {
+	if r.done {
+		return nil, nil
+	}
+
+	rms := rawReadMetaSeq{
+		Start: r.start,
+		End:   r.end,
+		Ptr:   uint64(uintptr(unsafe.Pointer(&r.buf[0]))),
+		Size:  r.batch,
+	}
+
+	n, err := scoutfsctl(r.fsfd, IOCRAWREADMETASEQ, unsafe.Pointer(&rms))
+	if err != nil {
+		return nil, err
+	}
+
+	r.last = rms.Last
+
+	if n == 0 {
+		r.done = true
+		return nil, nil
+	}
+
+	rbuf := bytes.NewReader(r.buf)
+	items := make([]MetaSeqEntry, n)
+
+	var e MetaSeqEntry
+	for i := 0; i < n; i++ {
+		err := binary.Read(rbuf, binary.LittleEndian, &e)
+		if err != nil {
+			return nil, err
+		}
+		items[i] = e
+	}
+
+	// Advance start past last for the next call
+	r.start = r.last
+	r.start.Ino++
+	if r.start.Ino == 0 {
+		r.start.Seq++
+	}
+
+	// If last reached the end of the range, we're done
+	if r.last.Seq == r.end.Seq && r.last.Ino == r.end.Ino {
+		r.done = true
+	}
+
+	return items, nil
+}
+
+// Last returns the last meta_seq position from the most recent Next() call.
+// This is the last item that could have been returned by the kernel.
+func (r *RawMetaSeqReader) Last() MetaSeqEntry {
+	return r.last
+}
+
+// Reset resets the reader to start from the beginning of the range
+func (r *RawMetaSeqReader) Reset() {
+	r.start = MetaSeqEntry{}
+	r.last = MetaSeqEntry{}
+	r.done = false
+}
+
+// RawInodeResult contains the inode metadata and optional xattr values
+// returned by RawReadInodeInfo for a single inode
+type RawInodeResult struct {
+	Ino    uint64
+	Inode  ScoutfsInode
+	Xattrs []RawXattrResult
+}
+
+// RawXattrResult contains a single xattr name and value
+type RawXattrResult struct {
+	Name  string
+	Value []byte
+}
+
+// RawReadInodeInfo reads inode metadata (and optionally xattr values) for
+// the given inode numbers without cluster locking.
+//
+// inos must be a sorted slice of unique non-zero inode numbers.
+// xattrNames optionally specifies xattr names to return with each inode.
+// resultsBuf is a caller-provided buffer for the ioctl results, allowing
+// reuse across calls to avoid repeated allocations.
+//
+// An open file within scoutfs is supplied for ioctls
+// (usually just the base mount point directory).
+func RawReadInodeInfo(f *os.File, inos []uint64, xattrNames []string, resultsBuf []byte) ([]RawInodeResult, error) {
+	if len(inos) == 0 {
+		return nil, nil
+	}
+
+	// Build the null-terminated xattr names buffer
+	var namesBuf []byte
+	for _, name := range xattrNames {
+		namesBuf = append(namesBuf, []byte(name)...)
+		namesBuf = append(namesBuf, 0)
+	}
+
+	rii := rawReadInodeInfo{
+		Inos_ptr:     uint64(uintptr(unsafe.Pointer(&inos[0]))),
+		Inos_count:   uint32(len(inos)),
+		Results_ptr:  uint64(uintptr(unsafe.Pointer(&resultsBuf[0]))),
+		Results_size: uint32(len(resultsBuf)),
+	}
+
+	if len(namesBuf) > 0 {
+		rii.Names_ptr = uint64(uintptr(unsafe.Pointer(&namesBuf[0])))
+		rii.Names_count = uint32(len(xattrNames))
+	}
+
+	n, err := scoutfsctl(f, IOCRAWREADINODEINFO, unsafe.Pointer(&rii))
+	if err != nil {
+		return nil, err
+	}
+
+	if n == 0 {
+		return nil, nil
+	}
+
+	return parseRawReadResults(resultsBuf[:n])
+}
+
+func parseRawReadResults(buf []byte) ([]RawInodeResult, error) {
+	var results []RawInodeResult
+	resultHdrSize := int(unsafe.Sizeof(RawReadResult{}))
+	off := 0
+
+	for off < len(buf) {
+		if off+resultHdrSize > len(buf) {
+			break
+		}
+
+		// Read result header - copy to aligned struct
+		var hdr RawReadResult
+		copy((*[12]byte)(unsafe.Pointer(&hdr))[:], buf[off:off+resultHdrSize])
+		off += resultHdrSize
+
+		if int(hdr.Size) > len(buf)-off {
+			return results, fmt.Errorf("result payload size %d exceeds remaining buffer %d", hdr.Size, len(buf)-off)
+		}
+
+		payload := buf[off : off+int(hdr.Size)]
+		off += int(hdr.Size)
+
+		switch hdr.Type {
+		case RAWREADRESULTINODE:
+			if len(payload) < 8 {
+				return results, fmt.Errorf("inode result too small: %d bytes", len(payload))
+			}
+
+			ino := binary.LittleEndian.Uint64(payload[:8])
+			inodeBytes := payload[8:]
+
+			var inode ScoutfsInode
+			inodeSize := int(unsafe.Sizeof(inode))
+
+			// Handle potentially smaller inode structs from older format versions
+			readSize := len(inodeBytes)
+			if readSize > inodeSize {
+				readSize = inodeSize
+			}
+			err := binary.Read(
+				bytes.NewReader(inodeBytes[:readSize]),
+				binary.LittleEndian,
+				(*[168]byte)(unsafe.Pointer(&inode))[:readSize],
+			)
+			if err != nil {
+				return results, fmt.Errorf("parse inode %d: %v", ino, err)
+			}
+
+			results = append(results, RawInodeResult{
+				Ino:   ino,
+				Inode: inode,
+			})
+
+		case RAWREADRESULTXATTR:
+			if len(results) == 0 {
+				return results, fmt.Errorf("xattr result without preceding inode result")
+			}
+
+			// Find null terminator separating name from value
+			nullIdx := bytes.IndexByte(payload, 0)
+			if nullIdx < 0 {
+				return results, fmt.Errorf("xattr result missing null terminator")
+			}
+
+			name := string(payload[:nullIdx])
+			value := make([]byte, len(payload)-nullIdx-1)
+			copy(value, payload[nullIdx+1:])
+
+			last := &results[len(results)-1]
+			last.Xattrs = append(last.Xattrs, RawXattrResult{
+				Name:  name,
+				Value: value,
+			})
+
+		default:
+			// Skip unknown result types for forward compatibility
+		}
+	}
+
+	return results, nil
+}

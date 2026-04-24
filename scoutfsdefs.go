@@ -52,6 +52,11 @@ const IOCIAXBITS = 0x100
 const IOCGETATTRX = 0x4068e812
 const IOCSETATTRX = 0x4068e813
 const IOCPUNCHOFFLINE = 0x4020e818
+const IOCRAWREADMETASEQ = 0x8040e819
+const IOCRAWREADINODEINFO = 0x8028e819
+
+const RAWREADRESULTINODE = 0x1
+const RAWREADRESULTXATTR = 0x2
 
 type InodesEntry struct {
 	Major	uint64
@@ -247,6 +252,59 @@ type punchOffline struct {
 	Len	uint64
 	Version	uint64
 	Flags	uint64
+}
+type MetaSeqEntry struct {
+	Seq	uint64
+	Ino	uint64
+}
+type rawReadMetaSeq struct {
+	Start	MetaSeqEntry
+	End	MetaSeqEntry
+	Last	MetaSeqEntry
+	Ptr	uint64
+	Size	uint32
+	X_pad	uint32
+}
+type rawReadInodeInfo struct {
+	Inos_ptr	uint64
+	Inos_count	uint32
+	Names_count	uint32
+	Names_ptr	uint64
+	Results_ptr	uint64
+	Results_size	uint32
+	X_pad		[4]uint8
+}
+type RawReadResult struct {
+	Size	uint32
+	X_pad	[7]uint8
+	Type	uint8
+}
+type ScoutfsInode struct {
+	Size			uint64
+	Meta_seq		uint64
+	Data_seq		uint64
+	Data_version		uint64
+	Online_blocks		uint64
+	Offline_blocks		uint64
+	Next_readdir_pos	uint64
+	Next_xattr_id		uint64
+	Version			uint64
+	Nlink			uint32
+	Uid			uint32
+	Gid			uint32
+	Mode			uint32
+	Rdev			uint32
+	Flags			uint32
+	Atime			ScoutfsTimespec
+	Ctime			ScoutfsTimespec
+	Mtime			ScoutfsTimespec
+	Crtime			ScoutfsTimespec
+	Proj			uint64
+}
+type ScoutfsTimespec struct {
+	Sec	uint64
+	Nsec	uint32
+	X__pad	[4]uint8
 }
 
 const sizeofstatfsMore = 0x30

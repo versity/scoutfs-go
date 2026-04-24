@@ -34,7 +34,14 @@ package scoutfs
 // typedef int32_t __s32;
 // typedef int64_t __s64;
 // #define __packed
+// #ifndef DIV_ROUND_UP
+// #define DIV_ROUND_UP(n, d) (((n) + (d) - 1) / (d))
+// #endif
+// #ifndef BITS_PER_LONG
+// #define BITS_PER_LONG (sizeof(long) * 8)
+// #endif
 // #include "/usr/include/scoutfs/ioctl.h"
+// #include "/usr/include/scoutfs/format.h"
 // typedef struct scoutfs_ioctl_walk_inodes_entry scoutfs_ioctl_walk_inodes_entry_t;
 // typedef struct scoutfs_ioctl_walk_inodes scoutfs_ioctl_walk_inodes_t;
 // typedef struct scoutfs_ioctl_ino_path scoutfs_ioctl_ino_path_t;
@@ -73,6 +80,12 @@ package scoutfs
 // typedef struct scoutfs_ioctl_read_xattr_index scoutfs_ioctl_read_xattr_index_t;
 // typedef struct scoutfs_ioctl_inode_attr_x scoutfs_ioctl_inode_attr_x_t;
 // typedef struct scoutfs_ioctl_punch_offline scoutfs_ioctl_punch_offline_t;
+// typedef struct scoutfs_ioctl_meta_seq scoutfs_ioctl_meta_seq_t;
+// typedef struct scoutfs_ioctl_raw_read_meta_seq scoutfs_ioctl_raw_read_meta_seq_t;
+// typedef struct scoutfs_ioctl_raw_read_inode_info scoutfs_ioctl_raw_read_inode_info_t;
+// typedef struct scoutfs_ioctl_raw_read_result scoutfs_ioctl_raw_read_result_t;
+// typedef struct scoutfs_inode scoutfs_inode_t;
+// typedef struct scoutfs_timespec scoutfs_timespec_t;
 import "C"
 
 const IOCQUERYINODES = C.SCOUTFS_IOC_WALK_INODES
@@ -124,6 +137,11 @@ const IOCIAXBITS = C.SCOUTFS_IOC_IAX__BITS
 const IOCGETATTRX = C.SCOUTFS_IOC_GET_ATTR_X
 const IOCSETATTRX = C.SCOUTFS_IOC_SET_ATTR_X
 const IOCPUNCHOFFLINE = C.SCOUTFS_IOC_PUNCH_OFFLINE
+const IOCRAWREADMETASEQ = C.SCOUTFS_IOC_RAW_READ_META_SEQ
+const IOCRAWREADINODEINFO = C.SCOUTFS_IOC_RAW_READ_INODE_INFO
+
+const RAWREADRESULTINODE = C.SCOUTFS_IOC_RAW_READ_RESULT_INODE
+const RAWREADRESULTXATTR = C.SCOUTFS_IOC_RAW_READ_RESULT_XATTR
 
 type InodesEntry C.scoutfs_ioctl_walk_inodes_entry_t
 type queryInodes C.scoutfs_ioctl_walk_inodes_t
@@ -151,6 +169,12 @@ type indexEntry C.scoutfs_ioctl_xattr_index_entry_t
 type readXattrIndex C.scoutfs_ioctl_read_xattr_index_t
 type inodeAttrX C.scoutfs_ioctl_inode_attr_x_t
 type punchOffline C.scoutfs_ioctl_punch_offline_t
+type MetaSeqEntry C.scoutfs_ioctl_meta_seq_t
+type rawReadMetaSeq C.scoutfs_ioctl_raw_read_meta_seq_t
+type rawReadInodeInfo C.scoutfs_ioctl_raw_read_inode_info_t
+type RawReadResult C.scoutfs_ioctl_raw_read_result_t
+type ScoutfsInode C.scoutfs_inode_t
+type ScoutfsTimespec C.scoutfs_timespec_t
 
 const sizeofstatfsMore = C.sizeof_scoutfs_ioctl_statfs_more_t
 const sizeofxattrTotal = C.sizeof_scoutfs_ioctl_xattr_total_t

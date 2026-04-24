@@ -1,0 +1,20 @@
+FROM golang:1.24-bookworm
+
+ARG SCOUTFS_BRANCH=main
+
+# Clone scoutfs and checkout the specified branch
+RUN git clone https://github.com/versity/scoutfs.git /tmp/scoutfs && \
+    cd /tmp/scoutfs && \
+    git checkout ${SCOUTFS_BRANCH}
+
+# Install the scoutfs headers where c_defs_linux.go expects them
+RUN mkdir -p /usr/include/scoutfs && \
+    cp /tmp/scoutfs/kmod/src/ioctl.h /usr/include/scoutfs/ioctl.h && \
+    cp /tmp/scoutfs/kmod/src/format.h /usr/include/scoutfs/format.h
+
+WORKDIR /work
+COPY go.mod ./
+COPY c_defs_linux.go ./
+
+# Generate scoutfsdefs.go
+CMD ["sh", "-c", "go tool cgo -godefs c_defs_linux.go > /output/scoutfsdefs.go"]
