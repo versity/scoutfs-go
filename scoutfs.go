@@ -217,6 +217,17 @@ func FSetAttrMore(f *os.File, version, size, flags uint64, ctime time.Time, crti
 	return err
 }
 
+// inoPathRequest matches the 64-bit ioctl layout while keeping the result
+// pointer visible to Go's garbage collector and stack relocation.
+type inoPathRequest struct {
+	Ino          uint64
+	Dir_ino      uint64
+	Dir_pos      uint64
+	Result_ptr   *inoPathResult
+	Result_bytes uint16
+	_            [6]uint8
+}
+
 type inoPathResult struct {
 	DirIno   uint64
 	DirPos   uint64
@@ -230,9 +241,9 @@ type inoPathResult struct {
 // (usually just the base mount point directory)
 func InoToPath(dirfd *os.File, ino uint64) (string, error) {
 	var res inoPathResult
-	ip := inoPath{
+	ip := inoPathRequest{
 		Ino:          ino,
-		Result_ptr:   uint64(uintptr(unsafe.Pointer(&res))),
+		Result_ptr:   &res,
 		Result_bytes: uint16(unsafe.Sizeof(res)),
 	}
 
@@ -251,9 +262,9 @@ func InoToPath(dirfd *os.File, ino uint64) (string, error) {
 // (usually just the base mount point directory)
 func InoToPaths(dirfd *os.File, ino uint64) ([]string, error) {
 	var res inoPathResult
-	ip := inoPath{
+	ip := inoPathRequest{
 		Ino:          ino,
-		Result_ptr:   uint64(uintptr(unsafe.Pointer(&res))),
+		Result_ptr:   &res,
 		Result_bytes: uint16(unsafe.Sizeof(res)),
 	}
 

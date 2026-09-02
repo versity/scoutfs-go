@@ -1,4 +1,5 @@
 //go:build ignore
+// +build ignore
 
 // Copyright (c) 2018 Versity Software, Inc.
 //
