@@ -16,6 +16,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -230,6 +231,10 @@ type inoPathResult struct {
 // (usually just the base mount point directory)
 func InoToPath(dirfd *os.File, ino uint64) (string, error) {
 	var res inoPathResult
+	// Result_ptr is an integer, so keep its target at a stable address.
+	var pin runtime.Pinner
+	pin.Pin(&res)
+	defer pin.Unpin()
 	ip := inoPath{
 		Ino:          ino,
 		Result_ptr:   uint64(uintptr(unsafe.Pointer(&res))),
@@ -251,6 +256,10 @@ func InoToPath(dirfd *os.File, ino uint64) (string, error) {
 // (usually just the base mount point directory)
 func InoToPaths(dirfd *os.File, ino uint64) ([]string, error) {
 	var res inoPathResult
+	// Result_ptr is an integer, so keep its target at a stable address.
+	var pin runtime.Pinner
+	pin.Pin(&res)
+	defer pin.Unpin()
 	ip := inoPath{
 		Ino:          ino,
 		Result_ptr:   uint64(uintptr(unsafe.Pointer(&res))),
