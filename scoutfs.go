@@ -36,6 +36,12 @@ const (
 	//leaderfile      = "quorum/is_leader"
 )
 
+// pinnedAddress pins a pointer before hiding it from the runtime in an ioctl field.
+func pinnedAddress[T any](pinner *runtime.Pinner, ptr *T) uint64 {
+	pinner.Pin(ptr)
+	return uint64(uintptr(unsafe.Pointer(ptr)))
+}
+
 // Query to keep track of in-process query
 type Query struct {
 	first InodesEntry
@@ -104,15 +110,18 @@ func WithBatchSize(size uint32) Option {
 
 // Next gets the next batch of inodes
 func (q *Query) Next() ([]InodesEntry, error) {
+	var pin runtime.Pinner
+
 	query := queryInodes{
 		First:       q.first,
 		Last:        q.last,
-		Entries_ptr: uint64(uintptr(unsafe.Pointer(&q.buf[0]))),
+		Entries_ptr: pinnedAddress(&pin, &q.buf[0]),
 		Nr_entries:  q.batch,
 		Index:       q.index,
 	}
 
 	n, err := scoutfsctl(q.fsfd, IOCQUERYINODES, unsafe.Pointer(&query))
+	pin.Unpin()
 	if err != nil {
 		return nil, err
 	}
@@ -231,13 +240,11 @@ type inoPathResult struct {
 // (usually just the base mount point directory)
 func InoToPath(dirfd *os.File, ino uint64) (string, error) {
 	var res inoPathResult
-	// Result_ptr is an integer, so keep its target at a stable address.
 	var pin runtime.Pinner
-	pin.Pin(&res)
 	defer pin.Unpin()
 	ip := inoPath{
 		Ino:          ino,
-		Result_ptr:   uint64(uintptr(unsafe.Pointer(&res))),
+		Result_ptr:   pinnedAddress(&pin, &res),
 		Result_bytes: uint16(unsafe.Sizeof(res)),
 	}
 
@@ -256,13 +263,11 @@ func InoToPath(dirfd *os.File, ino uint64) (string, error) {
 // (usually just the base mount point directory)
 func InoToPaths(dirfd *os.File, ino uint64) ([]string, error) {
 	var res inoPathResult
-	// Result_ptr is an integer, so keep its target at a stable address.
 	var pin runtime.Pinner
-	pin.Pin(&res)
 	defer pin.Unpin()
 	ip := inoPath{
 		Ino:          ino,
-		Result_ptr:   uint64(uintptr(unsafe.Pointer(&res))),
+		Result_ptr:   pinnedAddress(&pin, &res),
 		Result_bytes: uint16(unsafe.Sizeof(res)),
 	}
 
@@ -380,9 +385,12 @@ func StageFile(path string, version, offset uint64, b []byte) (int, error) {
 
 // FStageFile rehydrates offline file
 func FStageFile(f *os.File, version, offset uint64, b []byte) (int, error) {
+	var pin runtime.Pinner
+	defer pin.Unpin()
+
 	r := iocStage{
 		Data_version: version,
-		Buf_ptr:      uint64(uintptr(unsafe.Pointer(&b[0]))),
+		Buf_ptr:      pinnedAddress(&pin, &b[0]),
 		Offset:       offset,
 		Length:       int32(len(b)),
 	}
@@ -430,14 +438,17 @@ func WithWaitersCount(size uint16) WOption {
 
 // Next gets the next batch of data waiters, returns nil, nil if no waiters
 func (w *Waiters) Next() ([]DataWaitingEntry, error) {
+	var pin runtime.Pinner
+
 	dataWaiting := dataWaiting{
 		After_ino:    w.ino,
 		After_iblock: w.iblock,
-		Ents_ptr:     uint64(uintptr(unsafe.Pointer(&w.buf[0]))),
+		Ents_ptr:     pinnedAddress(&pin, &w.buf[0]),
 		Ents_nr:      w.batch,
 	}
 
 	n, err := scoutfsctl(w.fsfd, IOCDATAWAITING, unsafe.Pointer(&dataWaiting))
+	pin.Unpin()
 	if err != nil {
 		return nil, err
 	}
@@ -545,21 +556,24 @@ func WithXStartIno(ino uint64) XOption {
 
 // Next gets the next batch of inodes
 func (q *XattrQuery) Next() ([]uint64, error) {
-	name := []byte(q.key)
-	query := searchXattrs{
-		Next_ino:   q.next,
-		Last_ino:   max64,
-		Name_ptr:   uint64(uintptr(unsafe.Pointer(&name[0]))),
-		Inodes_ptr: uint64(uintptr(unsafe.Pointer(&q.buf[0]))),
-		Name_bytes: uint16(len(name)),
-		Nr_inodes:  q.batch,
-	}
-
 	if q.done {
 		return nil, nil
 	}
 
+	name := []byte(q.key)
+	var pin runtime.Pinner
+
+	query := searchXattrs{
+		Next_ino:   q.next,
+		Last_ino:   max64,
+		Name_ptr:   pinnedAddress(&pin, &name[0]),
+		Inodes_ptr: pinnedAddress(&pin, &q.buf[0]),
+		Name_bytes: uint16(len(name)),
+		Nr_inodes:  q.batch,
+	}
+
 	n, err := scoutfsctl(q.fsfd, IOCSEARCHXATTRS, unsafe.Pointer(&query))
+	pin.Unpin()
 	if err != nil {
 		return nil, err
 	}
@@ -615,10 +629,13 @@ func NewListXattrHidden(f *os.File, b []byte) *ListXattrHidden {
 
 // Next gets next set of results, complete when string slice is nil
 func (l *ListXattrHidden) Next() ([]string, error) {
+	var pin runtime.Pinner
+
 	l.lxr.Buf_bytes = uint32(len(l.buf))
-	l.lxr.Buf_ptr = uint64(uintptr(unsafe.Pointer(&l.buf[0])))
+	l.lxr.Buf_ptr = pinnedAddress(&pin, &l.buf[0])
 
 	n, err := scoutfsctl(l.f, IOCLISTXATTRHIDDEN, unsafe.Pointer(l.lxr))
+	pin.Unpin()
 	if err != nil {
 		return nil, err
 	}
@@ -764,12 +781,14 @@ func GetDF(f *os.File) (DiskUsage, error) {
 	nr := dfBatchCount
 	buf := make([]byte, int(unsafe.Sizeof(allocDetailEntry{}))*int(nr))
 	var ret int
+	var pin runtime.Pinner
 	for {
 		ad := allocDetail{
 			Nr:  nr,
-			Ptr: uint64(uintptr(unsafe.Pointer(&buf[0]))),
+			Ptr: pinnedAddress(&pin, &buf[0]),
 		}
 		ret, err = scoutfsctl(f, IOCALLOCDETAIL, unsafe.Pointer(&ad))
+		pin.Unpin()
 		if err == syscall.EOVERFLOW {
 			nr = nr * 2
 			buf = make([]byte, int(unsafe.Sizeof(allocDetailEntry{}))*int(nr))
@@ -930,10 +949,12 @@ type XattrTotal struct {
 // ReadXattrTotals returns the XattrTotal for the given id
 func ReadXattrTotals(f *os.File, id1, id2, id3 uint64) (XattrTotal, error) {
 	totls := make([]xattrTotal, 1)
+	var pin runtime.Pinner
+	defer pin.Unpin()
 
 	query := readXattrTotals{
 		Pos_name:     [3]uint64{id1, id2, id3},
-		Totals_ptr:   uint64(uintptr(unsafe.Pointer(&totls[0]))),
+		Totals_ptr:   pinnedAddress(&pin, &totls[0]),
 		Totals_bytes: sizeofxattrTotal,
 	}
 
@@ -985,14 +1006,16 @@ func (t *TotalsGroup) Next() ([]XattrTotal, error) {
 	if t.done {
 		return nil, nil
 	}
+	var pin runtime.Pinner
 
 	query := readXattrTotals{
 		Pos_name:     t.pos,
-		Totals_ptr:   uint64(uintptr(unsafe.Pointer(&t.totls[0]))),
+		Totals_ptr:   pinnedAddress(&pin, &t.totls[0]),
 		Totals_bytes: sizeofxattrTotal * uint64(t.count),
 	}
 
 	n, err := scoutfsctl(t.f, IOCREADXATTRTOTALS, unsafe.Pointer(&query))
+	pin.Unpin()
 	if err != nil {
 		return nil, err
 	}
@@ -1048,9 +1071,11 @@ func GetParents(dirfd *os.File, ino uint64, b []byte) ([]Parent, error) {
 	}
 
 	gre := getReferringEntries{}
+	var pin runtime.Pinner
+	defer pin.Unpin()
 
 	gre.Entries_bytes = uint64(len(b))
-	gre.Entries_ptr = uint64(uintptr(unsafe.Pointer(&b[0])))
+	gre.Entries_ptr = pinnedAddress(&pin, &b[0])
 	gre.Ino = ino
 
 	var parents []Parent
@@ -1436,14 +1461,16 @@ func (q *Quotas) Next() ([]QuotaRule, error) {
 	if q.done {
 		return nil, nil
 	}
+	var pin runtime.Pinner
 
 	query := getQuotaRules{
 		Iterator: q.iter,
-		Ptr:      uint64(uintptr(unsafe.Pointer(&q.rules[0]))),
+		Ptr:      pinnedAddress(&pin, &q.rules[0]),
 		Nr:       uint64(q.count),
 	}
 
 	n, err := scoutfsctl(q.f, IOCGETQUOTARULES, unsafe.Pointer(&query))
+	pin.Unpin()
 	if err != nil {
 		return nil, err
 	}
@@ -1767,14 +1794,17 @@ type IndexEnt struct {
 }
 
 func (i *IndexSearch) Next() ([]IndexEnt, error) {
+	var pin runtime.Pinner
+
 	query := readXattrIndex{
 		First: i.pos,
 		Last:  i.end,
-		Ptr:   uint64(uintptr(unsafe.Pointer(&i.buf[0]))),
+		Ptr:   pinnedAddress(&pin, &i.buf[0]),
 		Nr:    indexXattrBatch,
 	}
 
 	n, err := scoutfsctl(i.f, IOCREADXATTRINDEX, unsafe.Pointer(&query))
+	pin.Unpin()
 	if err != nil {
 		return nil, err
 	}
